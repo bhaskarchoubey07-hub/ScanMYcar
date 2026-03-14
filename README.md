@@ -127,3 +127,54 @@ Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`. On first backend start
 - Set `VITE_API_BASE_URL` in the frontend environment to the deployed backend API URL
 - Persist `backend/public/qr` if you deploy generated sticker images to containers
 - Do not commit `.env` files, generated QR images, or `backend/data/dev-db.json`
+
+## Deployment
+
+### Backend environment
+
+Set these values on your backend hosting platform:
+
+```env
+PORT=5000
+FRONTEND_URL=https://your-frontend-domain.com,https://www.your-frontend-domain.com
+PUBLIC_BASE_URL=https://your-backend-domain.com
+JWT_SECRET=replace_with_a_long_random_secret
+JWT_EXPIRES_IN=7d
+
+DB_HOST=your-db-host
+DB_PORT=3306
+DB_USER=your-db-user
+DB_PASSWORD=your-db-password
+DB_NAME=vehicle_qr_system
+
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=replace_with_a_strong_admin_password
+```
+
+Notes:
+
+- `FRONTEND_URL` can contain one or more comma-separated frontend domains.
+- `PUBLIC_BASE_URL` must be the public backend URL because QR codes and redirects use it.
+- Use a managed MySQL database in production. Do not rely on the local file fallback there.
+
+### Frontend environment
+
+Set these values on your frontend hosting platform:
+
+```env
+VITE_API_BASE_URL=https://your-backend-domain.com/api
+VITE_PUBLIC_BASE_URL=https://your-backend-domain.com
+```
+
+### Deploy order
+
+1. Deploy the MySQL database and import [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql).
+2. Deploy the backend with the backend environment values above.
+3. Deploy the frontend with `VITE_API_BASE_URL` pointing at the deployed backend.
+4. Update `FRONTEND_URL` on the backend to the final frontend domain if it changes after deployment.
+5. Visit `/api/health` on the backend and verify it returns `{"status":"ok","storage":"mysql"}`.
+
+### Files to use
+
+- Backend production template: [backend/.env.production.example](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/backend/.env.production.example)
+- Frontend production template: [frontend/.env.production.example](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/frontend/.env.production.example)

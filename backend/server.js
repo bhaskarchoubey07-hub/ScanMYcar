@@ -19,9 +19,14 @@ const { findUserByEmail, createUser } = require('./models/userModel');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const envOrigins = String(process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const allowedOrigins = new Set(
   [
-    process.env.FRONTEND_URL,
+    ...envOrigins,
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:4173',
@@ -65,7 +70,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.get('/v/:vehicleId', (req, res) => {
-  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const frontendUrl = (envOrigins[0] || 'http://localhost:5173').replace(/\/$/, '');
   return res.redirect(`${frontendUrl}/vehicle/${req.params.vehicleId}`);
 });
 
