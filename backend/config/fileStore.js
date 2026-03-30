@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const dataDir = path.join(__dirname, '..', 'data');
+const dataDir = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR, 'data')
+  : path.join(__dirname, '..', 'data');
 const dataFile = path.join(dataDir, 'dev-db.json');
 
 const defaultData = () => ({

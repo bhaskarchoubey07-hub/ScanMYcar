@@ -2,7 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
 
-const qrDir = path.join(__dirname, '..', 'public', 'qr');
+const qrDir = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR, 'qr')
+  : path.join(__dirname, '..', 'public', 'qr');
 
 const ensureQrDir = async () => {
   await fs.promises.mkdir(qrDir, { recursive: true });

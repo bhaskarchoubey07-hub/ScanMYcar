@@ -24,6 +24,34 @@ const envOrigins = String(process.env.FRONTEND_URL || '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const parseOrigin = (origin) => {
+  try {
+    return new URL(origin);
+  } catch (error) {
+    return null;
+  }
+};
+
+const isAllowedVercelOrigin = (origin) => {
+  const requestUrl = parseOrigin(origin);
+  if (!requestUrl || requestUrl.hostname === 'localhost' || requestUrl.hostname === '127.0.0.1') {
+    return false;
+  }
+
+  return envOrigins.some((allowedOrigin) => {
+    const allowedUrl = parseOrigin(allowedOrigin);
+    if (!allowedUrl || allowedUrl.hostname.endsWith('.vercel.app') === false) {
+      return false;
+    }
+
+    const allowedLabel = allowedUrl.hostname.replace('.vercel.app', '').split('.')[0];
+    return (
+      requestUrl.hostname.endsWith('.vercel.app') &&
+      requestUrl.hostname.replace('.vercel.app', '').startsWith(allowedLabel)
+    );
+  });
+};
+
 const allowedOrigins = new Set(
   [
     ...envOrigins,
@@ -34,10 +62,12 @@ const allowedOrigins = new Set(
   ].filter(Boolean)
 );
 
+app.set('trust proxy', 1);
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin || allowedOrigins.has(origin) || isAllowedVercelOrigin(origin)) {
         return callback(null, true);
       }
 
