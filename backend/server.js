@@ -1,4 +1,5 @@
-const { app, initializeApp, getStorageMode } = require('./app');
+const app = require('./app');
+const { initializeApp, getStorageMode } = require('./bootstrap');
 
 const PORT = process.env.PORT || 5000;
 
