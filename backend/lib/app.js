@@ -42,9 +42,10 @@ const isAllowedVercelOrigin = (origin) => {
     }
 
     const allowedLabel = allowedUrl.hostname.replace('.vercel.app', '').split('.')[0];
+    const requestLabel = requestUrl.hostname.replace('.vercel.app', '').split('.')[0];
     return (
       requestUrl.hostname.endsWith('.vercel.app') &&
-      requestUrl.hostname.replace('.vercel.app', '').startsWith(allowedLabel)
+      (requestLabel.startsWith(allowedLabel) || allowedLabel.startsWith(requestLabel))
     );
   });
 };
