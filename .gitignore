@@ -12,3 +12,5 @@ backend/public/qr/*.png
 backend/logs
 coverage
 *.log
+__pycache__/
+*.pyc
