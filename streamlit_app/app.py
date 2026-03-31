@@ -8,7 +8,7 @@ import streamlit as st
 from config import ADMIN_EMAIL, APP_NAME
 from db import ensure_admin_user, execute, fetch_all, fetch_one, init_database
 from qr_utils import build_vehicle_link, generate_qr_png, png_to_data_uri
-from security import verify_password
+from security import hash_password, verify_password
 
 
 st.set_page_config(
