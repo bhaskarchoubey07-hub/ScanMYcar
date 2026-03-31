@@ -1,14 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/v/(.*)",
-      "destination": "/v/$1"
-    },
-    {
       "source": "/",
       "destination": "/api/index"
     }
@@ -17,7 +9,7 @@
     "api/index.js": {
       "maxDuration": 10
     },
-    "api/[...slug].js": {
+    "api/**/*.js": {
       "maxDuration": 10
     },
     "v/[vehicleId].js": {
