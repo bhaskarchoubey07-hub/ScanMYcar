@@ -262,6 +262,43 @@ def add_vehicle(vehicle_number, vehicle_type, owner_name, contact_phone, emergen
     return vehicle_id
 
 
+def update_vehicle(vehicle_id, vehicle_number, vehicle_type, owner_name, contact_phone, emergency_contact):
+    if len(vehicle_number.strip()) < 4:
+        raise ValueError("Vehicle number must be at least 4 characters long.")
+    if len(owner_name.strip()) < 2:
+        raise ValueError("Owner name must be at least 2 characters long.")
+    if len(contact_phone.strip()) < 8 or len(emergency_contact.strip()) < 8:
+        raise ValueError("Contact numbers must be at least 8 digits long.")
+
+    vehicle = fetch_one(
+        "SELECT id FROM vehicles WHERE id = %s AND user_id = %s",
+        (vehicle_id, current_user()["id"]),
+    )
+    if not vehicle:
+        raise ValueError("Vehicle not found or you do not have permission to edit it.")
+
+    execute(
+        """
+        UPDATE vehicles
+        SET vehicle_number = %s,
+            vehicle_type = %s,
+            owner_name = %s,
+            contact_phone = %s,
+            emergency_contact = %s
+        WHERE id = %s AND user_id = %s
+        """,
+        (
+            vehicle_number.strip().upper(),
+            vehicle_type,
+            owner_name.strip(),
+            contact_phone.strip(),
+            emergency_contact.strip(),
+            vehicle_id,
+            current_user()["id"],
+        ),
+    )
+
+
 def render_metric_cards(metrics):
     columns = st.columns(len(metrics))
     for column, (label, value) in zip(columns, metrics):
@@ -477,7 +514,7 @@ def render_dashboard():
             title_col, action_col = st.columns([1.3, 1], gap="large")
             with title_col:
                 st.markdown(f"### {vehicle['vehicle_number']}")
-                st.write(f"{vehicle['vehicle_type'].title()} · {vehicle['owner_name']}")
+                st.write(f"{vehicle['vehicle_type'].title()} - {vehicle['owner_name']}")
                 st.caption(
                     f"Created {vehicle['created_at'].strftime('%Y-%m-%d %H:%M') if hasattr(vehicle['created_at'], 'strftime') else vehicle['created_at']}"
                 )
@@ -512,6 +549,97 @@ def render_dashboard():
                 """,
                 unsafe_allow_html=True,
             )
+
+
+def render_history():
+    require_login()
+    vehicles, stats = load_user_vehicles(current_user()["id"])
+    st.subheader("History and edits")
+    st.caption("Review generated QR entries and fix any vehicle details that were entered by mistake.")
+
+    render_metric_cards(
+        [
+            ("Vehicles", stats.get("totalVehicles", 0)),
+            ("Scans", stats.get("totalScans", 0)),
+            ("Editable Entries", len(vehicles)),
+        ]
+    )
+
+    if not vehicles:
+        st.info("No history yet. Add a vehicle first.")
+        return
+
+    history_csv = "\n".join(
+        [
+            "vehicle_id,vehicle_number,vehicle_type,owner_name,total_scans,created_at",
+            *[
+                f"{vehicle['id']},{vehicle['vehicle_number']},{vehicle['vehicle_type']},{vehicle['owner_name']},{vehicle['total_scans']},{vehicle['created_at']}"
+                for vehicle in vehicles
+            ],
+        ]
+    )
+    st.download_button(
+        "Download vehicle history CSV",
+        data=history_csv,
+        file_name="vehicle-history.csv",
+        mime="text/csv",
+    )
+
+    vehicle_types = ["car", "bike", "scooter", "truck", "other"]
+    for vehicle in vehicles:
+        qr_target, qr_png = generate_qr_png(vehicle["id"])
+        with st.expander(f"{vehicle['vehicle_number']} - edit details", expanded=False):
+            top_col, qr_col = st.columns([1.4, 0.8], gap="large")
+            with top_col:
+                st.write(f"Owner: {vehicle['owner_name']}")
+                st.write(f"Type: {vehicle['vehicle_type'].title()}")
+                st.write(f"Scans: {vehicle['total_scans']}")
+                st.code(qr_target, language="text")
+            with qr_col:
+                st.image(qr_png, width=180)
+                st.download_button(
+                    f"Download QR #{vehicle['id']}",
+                    data=qr_png,
+                    file_name=f"vehicle-{vehicle['id']}.png",
+                    mime="image/png",
+                    key=f"history-download-{vehicle['id']}",
+                )
+
+            with st.form(f"edit_vehicle_{vehicle['id']}"):
+                vehicle_number = st.text_input("Vehicle number", value=vehicle["vehicle_number"])
+                vehicle_type = st.selectbox(
+                    "Vehicle type",
+                    vehicle_types,
+                    index=vehicle_types.index(vehicle["vehicle_type"]),
+                    key=f"type-{vehicle['id']}",
+                )
+                owner_name = st.text_input("Owner name", value=vehicle["owner_name"], key=f"owner-{vehicle['id']}")
+                contact_phone = st.text_input(
+                    "Primary contact phone",
+                    value=vehicle["contact_phone"],
+                    key=f"phone-{vehicle['id']}",
+                )
+                emergency_contact = st.text_input(
+                    "Emergency contact",
+                    value=vehicle["emergency_contact"],
+                    key=f"emergency-{vehicle['id']}",
+                )
+                submitted = st.form_submit_button("Save changes")
+
+            if submitted:
+                try:
+                    update_vehicle(
+                        vehicle["id"],
+                        vehicle_number,
+                        vehicle_type,
+                        owner_name,
+                        contact_phone,
+                        emergency_contact,
+                    )
+                    st.success(f"Vehicle #{vehicle['id']} updated.")
+                    st.rerun()
+                except Exception as error:
+                    st.error(str(error))
 
 
 def render_add_vehicle():
@@ -638,7 +766,7 @@ def render_sidebar():
         st.markdown(f"## {APP_NAME}")
         if current_user():
             st.success(f"Signed in as {current_user()['name']}")
-            options = ["Dashboard", "Add Vehicle"]
+            options = ["Dashboard", "History", "Add Vehicle"]
             if current_user()["role"] == "admin":
                 options.append("Admin")
             choice = st.radio("Navigate", options, index=options.index(st.session_state.auth_view) if st.session_state.auth_view in options else 0)
@@ -681,6 +809,8 @@ def main():
         render_login()
     elif st.session_state.auth_view == "Dashboard":
         render_dashboard()
+    elif st.session_state.auth_view == "History":
+        render_history()
     elif st.session_state.auth_view == "Add Vehicle":
         render_add_vehicle()
     elif st.session_state.auth_view == "Admin":
