@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
+from hashlib import sha256
+from urllib.parse import urlencode
 
 import streamlit as st
 
-from config import ADMIN_EMAIL, APP_NAME
+from config import ADMIN_EMAIL, APP_NAME, PUBLIC_BASE_URL, RESET_TOKEN_EXPIRY_MINUTES
 from db import ensure_admin_user, execute, fetch_all, fetch_one, init_database
+from email_utils import email_is_configured, send_password_reset_email
 from qr_utils import build_vehicle_link, generate_qr_png, png_to_data_uri
 from security import hash_password, verify_password
 
@@ -37,6 +41,8 @@ def init_state():
         st.session_state.user = None
     if "auth_view" not in st.session_state:
         st.session_state.auth_view = "Landing"
+    if "password_reset_link" not in st.session_state:
+        st.session_state.password_reset_link = ""
 
 
 def set_query_params(**kwargs):
@@ -121,6 +127,74 @@ def login_user(email: str, password: str):
         "phone": user["phone"],
         "role": user["role"],
     }
+
+
+def build_reset_link(token: str) -> str:
+    return f"{PUBLIC_BASE_URL}/?{urlencode({'view': 'reset_password', 'token': token})}"
+
+
+def request_password_reset(email: str) -> str:
+    normalized_email = email.strip().lower()
+    user = fetch_one("SELECT id, email FROM users WHERE email = %s", (normalized_email,))
+    if not user:
+        return ""
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = sha256(raw_token.encode("utf-8")).hexdigest()
+    expires_at = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRY_MINUTES)
+
+    execute(
+        "UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = %s AND used_at IS NULL",
+        (user["id"],),
+    )
+    execute(
+        """
+        INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+        VALUES (%s, %s, %s)
+        """,
+        (user["id"], token_hash, expires_at),
+    )
+
+    reset_link = build_reset_link(raw_token)
+    if email_is_configured():
+        send_password_reset_email(user["email"], reset_link)
+        st.session_state.password_reset_link = ""
+    else:
+        st.session_state.password_reset_link = reset_link
+
+    return reset_link
+
+
+def consume_reset_token(token: str):
+    token_hash = sha256(token.encode("utf-8")).hexdigest()
+    return fetch_one(
+        """
+        SELECT prt.id, prt.user_id, u.email
+        FROM password_reset_tokens prt
+        JOIN users u ON u.id = prt.user_id
+        WHERE prt.token_hash = %s
+          AND prt.used_at IS NULL
+          AND prt.expires_at > UTC_TIMESTAMP()
+        ORDER BY prt.created_at DESC
+        LIMIT 1
+        """,
+        (token_hash,),
+    )
+
+
+def reset_password(token: str, new_password: str):
+    if len(new_password) < 8:
+        raise ValueError("Password must be at least 8 characters long.")
+
+    reset_row = consume_reset_token(token)
+    if not reset_row:
+        raise ValueError("Reset link is invalid or expired.")
+
+    execute(
+        "UPDATE users SET password_hash = %s WHERE id = %s",
+        (hash_password(new_password), reset_row["user_id"]),
+    )
+    execute("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = %s", (reset_row["id"],))
 
 
 def load_user_vehicles(user_id: int):
@@ -323,6 +397,59 @@ def render_login():
             st.session_state.auth_view = "Admin" if st.session_state.user["role"] == "admin" else "Dashboard"
             st.success("Login successful.")
             st.rerun()
+        except Exception as error:
+            st.error(str(error))
+
+    st.markdown("#### Forgot password?")
+    with st.form("forgot_password_form", clear_on_submit=False):
+        reset_email = st.text_input("Enter your registered email", key="forgot_email")
+        requested = st.form_submit_button("Send reset link")
+
+    if requested:
+        try:
+            reset_link = request_password_reset(reset_email)
+            if reset_link:
+                if email_is_configured():
+                    st.success("Password reset link sent to your email.")
+                else:
+                    st.warning("SMTP is not configured yet. Use the reset link below for testing.")
+                    st.code(reset_link, language="text")
+            else:
+                st.success("If that email exists, a reset link is ready.")
+        except Exception as error:
+            st.error(str(error))
+
+    if st.session_state.password_reset_link:
+        st.info("Developer fallback reset link")
+        st.code(st.session_state.password_reset_link, language="text")
+
+
+def render_reset_password(token: str):
+    st.subheader("Set a new password")
+    token_row = consume_reset_token(token)
+    if not token_row:
+        st.error("This reset link is invalid or expired.")
+        if st.button("Back to login"):
+            set_query_params()
+            st.session_state.auth_view = "Login"
+            st.rerun()
+        return
+
+    with st.form("reset_password_form"):
+        new_password = st.text_input("New password", type="password")
+        confirm_password = st.text_input("Confirm new password", type="password")
+        submitted = st.form_submit_button("Update password")
+
+    if submitted:
+        try:
+            if new_password != confirm_password:
+                raise ValueError("Passwords do not match.")
+            reset_password(token, new_password)
+            st.success("Password updated. Please login with your new password.")
+            if st.button("Go to login"):
+                set_query_params()
+                st.session_state.auth_view = "Login"
+                st.rerun()
         except Exception as error:
             st.error(str(error))
 
@@ -534,9 +661,14 @@ def main():
     query_params = st.query_params
     view = query_params.get("view")
     vehicle_id = query_params.get("vehicle_id")
+    token = query_params.get("token")
 
     if view == "vehicle" and vehicle_id:
         render_public_vehicle(int(vehicle_id))
+        return
+
+    if view == "reset_password" and token:
+        render_reset_password(str(token))
         return
 
     render_sidebar()

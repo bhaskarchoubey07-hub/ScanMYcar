@@ -90,6 +90,17 @@ def init_database():
                   CONSTRAINT fk_scan_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
                 )
                 """,
+                """
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                  id INT PRIMARY KEY AUTO_INCREMENT,
+                  user_id INT NOT NULL,
+                  token_hash VARCHAR(255) NOT NULL,
+                  expires_at DATETIME NOT NULL,
+                  used_at DATETIME NULL,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """,
             ]:
                 cursor.execute(statement)
 
@@ -108,6 +119,16 @@ def init_database():
                     "scans",
                     "idx_scans_scan_time",
                     "CREATE INDEX idx_scans_scan_time ON scans(scan_time)",
+                ),
+                (
+                    "password_reset_tokens",
+                    "idx_reset_user_id",
+                    "CREATE INDEX idx_reset_user_id ON password_reset_tokens(user_id)",
+                ),
+                (
+                    "password_reset_tokens",
+                    "idx_reset_token_hash",
+                    "CREATE INDEX idx_reset_token_hash ON password_reset_tokens(token_hash)",
                 ),
             ]:
                 cursor.execute(

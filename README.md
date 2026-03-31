@@ -58,6 +58,7 @@ For Streamlit Cloud:
 - Main file path: `streamlit_app/app.py`
 - Python dependencies: root `requirements.txt`
 - Environment values: copy from `streamlit_app/.env.example`
+- Forgot password email: configure Gmail SMTP values from `streamlit_app/.env.example`
 
 ## API Documentation
 
