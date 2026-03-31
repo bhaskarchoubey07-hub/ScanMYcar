@@ -11,7 +11,7 @@ import streamlit as st
 from config import ADMIN_EMAIL, APP_NAME, PUBLIC_BASE_URL, RESET_TOKEN_EXPIRY_MINUTES
 from db import ensure_admin_user, execute, fetch_all, fetch_one, init_database
 from email_utils import email_is_configured, send_password_reset_email
-from qr_utils import build_vehicle_link, generate_qr_png, png_to_data_uri
+from qr_utils import STICKER_PRESETS, build_vehicle_link, generate_qr_png, generate_sticker_png, png_to_data_uri
 from security import hash_password, verify_password
 
 
@@ -586,6 +586,7 @@ def render_history():
     )
 
     vehicle_types = ["car", "bike", "scooter", "truck", "other"]
+    preset_names = list(STICKER_PRESETS.keys())
     for vehicle in vehicles:
         qr_target, qr_png = generate_qr_png(vehicle["id"])
         with st.expander(f"{vehicle['vehicle_number']} - edit details", expanded=False):
@@ -640,6 +641,30 @@ def render_history():
                     st.rerun()
                 except Exception as error:
                     st.error(str(error))
+
+            st.markdown("#### Customize branded sticker")
+            selected_preset = st.selectbox(
+                "Choose a sticker style",
+                preset_names,
+                key=f"preset-{vehicle['id']}",
+            )
+            sticker_png = generate_sticker_png(vehicle["id"], APP_NAME, selected_preset, qr_png=qr_png)
+            preview_col, info_col = st.columns([1.1, 0.9], gap="large")
+            with preview_col:
+                st.image(sticker_png, caption=f"{selected_preset} preview", use_container_width=True)
+            with info_col:
+                st.write("Included in this design:")
+                st.write("- QR image")
+                st.write(f"- Website name: {APP_NAME}")
+                st.write('- “Need to contact the vehicle owner?”')
+                st.write(f"- Vehicle ID #{vehicle['id']}")
+                st.download_button(
+                    f"Download {selected_preset} sticker",
+                    data=sticker_png,
+                    file_name=f"vehicle-{vehicle['id']}-{selected_preset.lower().replace(' ', '-')}.png",
+                    mime="image/png",
+                    key=f"sticker-download-{vehicle['id']}",
+                )
 
 
 def render_add_vehicle():
