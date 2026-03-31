@@ -42,6 +42,23 @@ Frontend runs on `http://localhost:5173` and backend runs on `http://localhost:5
 
 If MySQL is temporarily unavailable during local development, the backend can fall back to a local file store under `backend/data/`. That file is ignored by Git and should not be used as a production database.
 
+## Streamlit Version
+
+This repo also includes a Streamlit + MySQL implementation under `streamlit_app/app.py`.
+
+Run it locally with Python:
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app/app.py
+```
+
+For Streamlit Cloud:
+
+- Main file path: `streamlit_app/app.py`
+- Python dependencies: root `requirements.txt`
+- Environment values: copy from `streamlit_app/.env.example`
+
 ## API Documentation
 
 ### `POST /api/auth/register`
