@@ -125,7 +125,7 @@ Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`. On first backend start
 - Set `PUBLIC_BASE_URL` to the deployed backend domain
 - Set `FRONTEND_URL` to the deployed frontend domain
 - Set `VITE_API_BASE_URL` in the frontend environment to the deployed backend API URL
-- Persist `backend/public/qr` if you deploy generated sticker images to containers
+- QR codes are now returned as SVG data URLs, so Vercel does not need persistent disk storage for sticker images
 - Do not commit `.env` files, generated QR images, or `backend/data/dev-db.json`
 
 ## Deployment
@@ -139,7 +139,7 @@ FRONTEND_URL=https://your-frontend-domain.com,https://www.your-frontend-domain.c
 PUBLIC_BASE_URL=https://your-backend-domain.com
 JWT_SECRET=replace_with_a_long_random_secret
 JWT_EXPIRES_IN=7d
-STORAGE_DIR=/var/data/scanmycar
+STORAGE_DIR=
 
 DB_HOST=your-db-host
 DB_PORT=3306
@@ -157,37 +157,33 @@ Notes:
 
 - `FRONTEND_URL` can contain one or more comma-separated frontend domains.
 - `PUBLIC_BASE_URL` must be the public backend URL because QR codes and redirects use it.
-- `STORAGE_DIR` should point to a mounted persistent disk in Render if you want QR images and fallback file data to survive redeploys.
+- `STORAGE_DIR` is optional for Vercel. It is only used if the app falls back to the local file store.
 - Set `DB_SSL=true` for hosted MySQL providers that require TLS. If the provider uses a self-signed or managed certificate chain that Node cannot verify directly, also set `DB_SSL_REJECT_UNAUTHORIZED=false`.
 - Use a managed MySQL database in production. Do not rely on the local file fallback there.
 
-### Deploy backend on Render
+### Deploy backend on Vercel
 
-Create a `Web Service` with:
+Create a separate Vercel project with:
 
-- Name: `scanmycar-backend`
-- Runtime: `Node`
-- Branch: `main`
 - Root Directory: `backend`
-- Build Command: `npm install`
-- Start Command: `npm start`
+- Framework Preset: `Other`
+- Install Command: `npm install`
 
-If you attach a persistent disk in Render, mount it to:
+The backend is configured for Vercel Functions using:
 
-- Mount Path: `/var/data`
+- [backend/api/index.js](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/backend/api/index.js)
+- [backend/api/[...slug].js](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/backend/api/[...slug].js)
+- [backend/v/[vehicleId].js](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/backend/v/[vehicleId].js)
+- [backend/vercel.json](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/backend/vercel.json)
 
-Then set:
-
-- `STORAGE_DIR=/var/data/scanmycar`
-
-Recommended Render environment values:
+Recommended Vercel backend environment values:
 
 ```env
 FRONTEND_URL=https://your-frontend-domain.vercel.app
-PUBLIC_BASE_URL=https://scanmycar-backend.onrender.com
+PUBLIC_BASE_URL=https://your-backend-project.vercel.app
 JWT_SECRET=replace_with_a_long_random_secret
 JWT_EXPIRES_IN=7d
-STORAGE_DIR=/var/data/scanmycar
+STORAGE_DIR=
 DB_HOST=your-mysql-host
 DB_PORT=3306
 DB_USER=your-mysql-user
@@ -208,11 +204,20 @@ VITE_API_BASE_URL=https://your-backend-domain.com/api
 VITE_PUBLIC_BASE_URL=https://your-backend-domain.com
 ```
 
+### Deploy frontend on Vercel
+
+Create a second Vercel project with:
+
+- Root Directory: `frontend`
+- Framework Preset: `Vite`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
 ### Deploy order
 
 1. Deploy the MySQL database and import [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql).
-2. Deploy the backend on Render with the backend environment values above.
-3. Deploy the frontend with `VITE_API_BASE_URL` pointing at the deployed backend.
+2. Deploy the backend on Vercel with the backend environment values above.
+3. Deploy the frontend on Vercel with `VITE_API_BASE_URL` pointing at the deployed backend.
 4. Update `FRONTEND_URL` on the backend to the final frontend domain if it changes after deployment.
 5. Visit `/api/health` on the backend and verify it returns `{"status":"ok","storage":"mysql"}`.
 

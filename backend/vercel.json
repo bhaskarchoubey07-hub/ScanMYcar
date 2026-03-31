@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 10
+    },
+    "api/[...slug].js": {
+      "maxDuration": 10
+    },
+    "v/[vehicleId].js": {
+      "maxDuration": 10
+    }
+  }
+}
