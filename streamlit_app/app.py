@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-import pandas as pd
 import streamlit as st
 
 from config import ADMIN_EMAIL, APP_NAME
@@ -450,11 +449,11 @@ def render_admin():
 
     tab_users, tab_vehicles, tab_scans = st.tabs(["Users", "Vehicles", "Scans"])
     with tab_users:
-        st.dataframe(pd.DataFrame(users), use_container_width=True)
+        st.dataframe(users, use_container_width=True)
     with tab_vehicles:
-        st.dataframe(pd.DataFrame(vehicles), use_container_width=True)
+        st.dataframe(vehicles, use_container_width=True)
     with tab_scans:
-        st.dataframe(pd.DataFrame(scans), use_container_width=True)
+        st.dataframe(scans, use_container_width=True)
 
 
 def render_public_vehicle(vehicle_id: int):
