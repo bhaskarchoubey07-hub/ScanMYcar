@@ -10,7 +10,6 @@ import streamlit as st
 
 from config import ADMIN_EMAIL, APP_NAME, PUBLIC_BASE_URL, RESET_TOKEN_EXPIRY_MINUTES
 from db import ensure_admin_user, execute, fetch_all, fetch_one, init_database
-from email_utils import email_is_configured, send_password_reset_email
 from qr_utils import STICKER_PRESETS, build_vehicle_link, generate_qr_png, generate_sticker_png, png_to_data_uri
 from security import hash_password, verify_password
 
@@ -156,12 +155,7 @@ def request_password_reset(email: str) -> str:
     )
 
     reset_link = build_reset_link(raw_token)
-    if email_is_configured():
-        send_password_reset_email(user["email"], reset_link)
-        st.session_state.password_reset_link = ""
-    else:
-        st.session_state.password_reset_link = reset_link
-
+    st.session_state.password_reset_link = reset_link
     return reset_link
 
 
@@ -348,7 +342,7 @@ def render_landing():
     render_metric_cards(
         [
             ("Private Contact", "100%"),
-            ("PostgreSQL Ready", "Live"),
+            ("MySQL Ready", "Live"),
             ("QR Stickers", "Printable"),
         ]
     )
@@ -446,18 +440,15 @@ def render_login():
         try:
             reset_link = request_password_reset(reset_email)
             if reset_link:
-                if email_is_configured():
-                    st.success("Password reset link sent to your email.")
-                else:
-                    st.warning("SMTP is not configured yet. Use the reset link below for testing.")
-                    st.code(reset_link, language="text")
+                st.success("Reset link generated. Use the link below to set a new password.")
+                st.code(reset_link, language="text")
             else:
                 st.success("If that email exists, a reset link is ready.")
         except Exception as error:
             st.error(str(error))
 
     if st.session_state.password_reset_link:
-        st.info("Developer fallback reset link")
+        st.info("Password reset link")
         st.code(st.session_state.password_reset_link, language="text")
 
 
@@ -656,7 +647,7 @@ def render_history():
                 st.write("Included in this design:")
                 st.write("- QR image")
                 st.write(f"- Website name: {APP_NAME}")
-                st.write('- “Need to contact the vehicle owner?”')
+                st.write('- "Need to contact the vehicle owner?"')
                 st.write(f"- Vehicle ID #{vehicle['id']}")
                 st.download_button(
                     f"Download {selected_preset} sticker",

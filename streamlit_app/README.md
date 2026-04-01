@@ -21,15 +21,6 @@ streamlit run streamlit_app/app.py
 
 Set the same values from `streamlit_app/.env.example` in Streamlit Cloud secrets or environment variables.
 
-## Gmail SMTP for forgot password
+## Forgot password
 
-Use an App Password from your Gmail account, then set:
-
-```toml
-SMTP_HOST = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USER = "your_gmail@gmail.com"
-SMTP_PASSWORD = "your_16_char_app_password"
-SMTP_FROM = "your_gmail@gmail.com"
-RESET_TOKEN_EXPIRY_MINUTES = 30
-```
+The Streamlit app now generates reset links directly inside the login screen. No SMTP or Gmail setup is required.
