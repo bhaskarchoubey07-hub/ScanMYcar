@@ -6,7 +6,7 @@ A production-ready full-stack web application that lets vehicle owners register 
 
 - Frontend: React, Vite, TailwindCSS, Axios
 - Backend: Node.js, Express.js, JWT, bcrypt, QRCode
-- Database: PostgreSQL
+- Database: MySQL
 
 ## Setup
 
@@ -16,10 +16,10 @@ A production-ready full-stack web application that lets vehicle owners register 
 npm install
 ```
 
-2. Create a PostgreSQL database and load the schema:
+2. Create a MySQL database and load the schema:
 
 ```bash
-psql "$DATABASE_URL" -f database/schema.sql
+mysql -u root -p < database/schema.sql
 ```
 
 3. Copy environment files:
@@ -30,7 +30,7 @@ copy frontend\.env.example frontend\.env
 ```
 
 4. Update the values in `backend/.env` and `frontend/.env`.
-   Use your real PostgreSQL password in `backend/.env`.
+   Use your real MySQL password in `backend/.env`.
 
 5. Start the app:
 
@@ -40,11 +40,11 @@ npm run dev
 
 Frontend runs on `http://localhost:5173` and backend runs on `http://localhost:5000`.
 
-If PostgreSQL is temporarily unavailable during local development, the backend can fall back to a local file store under `backend/data/`. That file is ignored by Git and should not be used as a production database.
+If MySQL is temporarily unavailable during local development, the backend can fall back to a local file store under `backend/data/`. That file is ignored by Git and should not be used as a production database.
 
 ## Streamlit Version
 
-This repo also includes a Streamlit + PostgreSQL implementation under `streamlit_app/app.py`.
+This repo also includes a Streamlit + MySQL implementation under `streamlit_app/app.py`.
 
 Run it locally with Python:
 
@@ -233,11 +233,11 @@ Create a second Vercel project with:
 
 ### Deploy order
 
-1. Deploy the PostgreSQL database and import [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql).
+1. Deploy the MySQL database and import [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql).
 2. Deploy the backend on Vercel with the backend environment values above.
 3. Deploy the frontend on Vercel with `VITE_API_BASE_URL` pointing at the deployed backend.
 4. Update `FRONTEND_URL` on the backend to the final frontend domain if it changes after deployment.
-5. Visit `/api/health` on the backend and verify it returns `{"status":"ok","storage":"postgres"}`.
+5. Visit `/api/health` on the backend and verify it returns `{"status":"ok","storage":"mysql"}`.
 
 ### Files to use
 

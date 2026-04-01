@@ -40,6 +40,14 @@ def _connection_kwargs() -> dict:
 def get_connection():
     try:
         connection = pymysql.connect(**_connection_kwargs())
+    except RuntimeError as error:
+        message = str(error)
+        if "cryptography is required" in message.lower():
+            raise RuntimeError(
+                "MySQL authentication requires the 'cryptography' package during deployment. "
+                "Redeploy the app so Streamlit Cloud installs the latest requirements.txt."
+            ) from error
+        raise
     except pymysql.Error as error:
         message = str(error)
         if (
@@ -53,6 +61,18 @@ def get_connection():
                 f"Could not resolve DB_HOST '{DB_HOST}'. Check your Streamlit secrets or "
                 "streamlit_app/.env value, and make sure it contains only the database hostname "
                 "without mysql://, http://, or an appended port."
+            ) from error
+        if "access denied" in message.lower():
+            raise RuntimeError(
+                "Database login failed. Check DB_USER and DB_PASSWORD in your Streamlit secrets."
+            ) from error
+        if "unknown database" in message.lower():
+            raise RuntimeError(
+                f"Database '{DB_NAME}' was not found. Check DB_NAME in your Streamlit secrets."
+            ) from error
+        if "ssl" in message.lower():
+            raise RuntimeError(
+                "Database SSL negotiation failed. Check DB_SSL and DB_SSL_REJECT_UNAUTHORIZED in your Streamlit secrets."
             ) from error
         raise
     try:

@@ -799,7 +799,15 @@ def render_sidebar():
 
 def main():
     st.markdown(f"<style>{load_styles()}</style>", unsafe_allow_html=True)
-    bootstrap()
+    try:
+        bootstrap()
+    except Exception as error:
+        st.error("App startup failed.")
+        st.code(str(error), language="text")
+        st.info(
+            "Check your Streamlit secrets for the database values, then reboot the app."
+        )
+        return
     init_state()
 
     query_params = st.query_params
