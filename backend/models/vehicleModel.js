@@ -33,7 +33,7 @@ const createVehicle = async ({
     });
   }
 
-  const [result] = await pool.execute(
+  const result = await pool.query(
     `INSERT INTO vehicles (
       user_id,
       vehicle_number,
@@ -42,11 +42,12 @@ const createVehicle = async ({
       contact_phone,
       emergency_contact,
       qr_code_url
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING id`,
     [userId, vehicleNumber, vehicleType, ownerName, contactPhone, emergencyContact, qrCodeUrl]
   );
 
-  return result.insertId;
+  return result.rows[0].id;
 };
 
 const updateVehicleQr = async (vehicleId, qrCodeUrl) => {
@@ -60,7 +61,7 @@ const updateVehicleQr = async (vehicleId, qrCodeUrl) => {
     return;
   }
 
-  await pool.execute('UPDATE vehicles SET qr_code_url = ? WHERE id = ?', [qrCodeUrl, vehicleId]);
+  await pool.query('UPDATE vehicles SET qr_code_url = $1 WHERE id = $2', [qrCodeUrl, vehicleId]);
 };
 
 const findVehicleById = async (vehicleId) => {
@@ -78,15 +79,15 @@ const findVehicleById = async (vehicleId) => {
     };
   }
 
-  const [rows] = await pool.execute(
+  const result = await pool.query(
     `SELECT v.*, u.email AS user_email
      FROM vehicles v
      JOIN users u ON u.id = v.user_id
-     WHERE v.id = ?
+     WHERE v.id = $1
      LIMIT 1`,
     [vehicleId]
   );
-  return rows[0] || null;
+  return result.rows[0] || null;
 };
 
 const listVehiclesByUserId = async (userId) => {
@@ -101,18 +102,18 @@ const listVehiclesByUserId = async (userId) => {
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }
 
-  const [rows] = await pool.execute(
+  const result = await pool.query(
     `SELECT
       v.*,
       COUNT(s.id) AS total_scans
      FROM vehicles v
      LEFT JOIN scans s ON s.vehicle_id = v.id
-     WHERE v.user_id = ?
+     WHERE v.user_id = $1
      GROUP BY v.id
      ORDER BY v.created_at DESC`,
     [userId]
   );
-  return rows.map(normalizeVehicleScanCount);
+  return result.rows.map(normalizeVehicleScanCount);
 };
 
 const listAllVehicles = async () => {
@@ -131,7 +132,7 @@ const listAllVehicles = async () => {
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }
 
-  const [rows] = await pool.execute(
+  const result = await pool.query(
     `SELECT
       v.*,
       u.name AS user_name,
@@ -140,10 +141,10 @@ const listAllVehicles = async () => {
      FROM vehicles v
      JOIN users u ON u.id = v.user_id
      LEFT JOIN scans s ON s.vehicle_id = v.id
-     GROUP BY v.id
+     GROUP BY v.id, u.name, u.email
      ORDER BY v.created_at DESC`
   );
-  return rows.map(normalizeVehicleScanCount);
+  return result.rows.map(normalizeVehicleScanCount);
 };
 
 const getVehicleStatsForUser = async (userId) => {
@@ -161,7 +162,7 @@ const getVehicleStatsForUser = async (userId) => {
     };
   }
 
-  const [rows] = await pool.execute(
+  const result = await pool.query(
     `SELECT
       COUNT(*) AS totalVehicles,
       COALESCE(SUM(scan_count), 0) AS totalScans
@@ -169,15 +170,15 @@ const getVehicleStatsForUser = async (userId) => {
        SELECT v.id, COUNT(s.id) AS scan_count
        FROM vehicles v
        LEFT JOIN scans s ON s.vehicle_id = v.id
-       WHERE v.user_id = ?
+       WHERE v.user_id = $1
        GROUP BY v.id
      ) AS stats`,
     [userId]
   );
 
   return {
-    totalVehicles: Number(rows[0]?.totalVehicles || 0),
-    totalScans: Number(rows[0]?.totalScans || 0)
+    totalVehicles: Number(result.rows[0]?.totalvehicles || 0),
+    totalScans: Number(result.rows[0]?.totalscans || 0)
   };
 };
 

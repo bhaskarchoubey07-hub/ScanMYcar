@@ -24,13 +24,14 @@ const createScan = async ({
     });
   }
 
-  const [result] = await pool.execute(
+  const result = await pool.query(
     `INSERT INTO scans (vehicle_id, ip_address, device, latitude, longitude)
-     VALUES (?, ?, ?, ?, ?)`,
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
     [vehicleId, ipAddress, device, latitude, longitude]
   );
 
-  return result.insertId;
+  return result.rows[0].id;
 };
 
 const listScans = async () => {
@@ -48,7 +49,7 @@ const listScans = async () => {
       .sort((a, b) => new Date(b.scan_time) - new Date(a.scan_time));
   }
 
-  const [rows] = await pool.execute(
+  const result = await pool.query(
     `SELECT
       s.id,
       s.vehicle_id,
@@ -63,7 +64,7 @@ const listScans = async () => {
      JOIN vehicles v ON v.id = s.vehicle_id
      ORDER BY s.scan_time DESC`
   );
-  return rows;
+  return result.rows;
 };
 
 const countScans = async () => {
@@ -72,8 +73,8 @@ const countScans = async () => {
     return data.scans.length;
   }
 
-  const [rows] = await pool.execute('SELECT COUNT(*) AS totalScans FROM scans');
-  return rows[0]?.totalScans || 0;
+  const result = await pool.query('SELECT COUNT(*) AS "totalScans" FROM scans');
+  return result.rows[0]?.totalScans || 0;
 };
 
 module.exports = {

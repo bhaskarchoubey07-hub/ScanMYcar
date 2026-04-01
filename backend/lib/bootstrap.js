@@ -42,7 +42,7 @@ const initializeApp = async () => {
       const startupError = getStartupError();
       if (startupError) {
         console.warn(
-          `MySQL unavailable, using local file storage instead: ${startupError.message || startupError.code}`
+          `PostgreSQL unavailable, using local file storage instead: ${startupError.message || startupError.code}`
         );
       }
 

@@ -144,7 +144,7 @@ def request_password_reset(email: str) -> str:
     expires_at = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRY_MINUTES)
 
     execute(
-        "UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = %s AND used_at IS NULL",
+        "UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = %s AND used_at IS NULL",
         (user["id"],),
     )
     execute(
@@ -174,7 +174,7 @@ def consume_reset_token(token: str):
         JOIN users u ON u.id = prt.user_id
         WHERE prt.token_hash = %s
           AND prt.used_at IS NULL
-          AND prt.expires_at > UTC_TIMESTAMP()
+          AND prt.expires_at > CURRENT_TIMESTAMP
         ORDER BY prt.created_at DESC
         LIMIT 1
         """,
@@ -194,7 +194,7 @@ def reset_password(token: str, new_password: str):
         "UPDATE users SET password_hash = %s WHERE id = %s",
         (hash_password(new_password), reset_row["user_id"]),
     )
-    execute("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = %s", (reset_row["id"],))
+    execute("UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = %s", (reset_row["id"],))
 
 
 def load_user_vehicles(user_id: int):
@@ -348,7 +348,7 @@ def render_landing():
     render_metric_cards(
         [
             ("Private Contact", "100%"),
-            ("MySQL Ready", "Live"),
+            ("PostgreSQL Ready", "Live"),
             ("QR Stickers", "Printable"),
         ]
     )

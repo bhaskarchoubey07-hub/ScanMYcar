@@ -6,7 +6,7 @@ A production-ready full-stack web application that lets vehicle owners register 
 
 - Frontend: React, Vite, TailwindCSS, Axios
 - Backend: Node.js, Express.js, JWT, bcrypt, QRCode
-- Database: MySQL
+- Database: PostgreSQL
 
 ## Setup
 
@@ -16,10 +16,10 @@ A production-ready full-stack web application that lets vehicle owners register 
 npm install
 ```
 
-2. Create a MySQL database and load the schema:
+2. Create a PostgreSQL database and load the schema:
 
 ```bash
-mysql -u root -p < database/schema.sql
+psql "$DATABASE_URL" -f database/schema.sql
 ```
 
 3. Copy environment files:
@@ -30,7 +30,7 @@ copy frontend\.env.example frontend\.env
 ```
 
 4. Update the values in `backend/.env` and `frontend/.env`.
-   Use your real MySQL password in `backend/.env`.
+   Use your real PostgreSQL password in `backend/.env`.
 
 5. Start the app:
 
@@ -40,11 +40,11 @@ npm run dev
 
 Frontend runs on `http://localhost:5173` and backend runs on `http://localhost:5000`.
 
-If MySQL is temporarily unavailable during local development, the backend can fall back to a local file store under `backend/data/`. That file is ignored by Git and should not be used as a production database.
+If PostgreSQL is temporarily unavailable during local development, the backend can fall back to a local file store under `backend/data/`. That file is ignored by Git and should not be used as a production database.
 
 ## Streamlit Version
 
-This repo also includes a Streamlit + MySQL implementation under `streamlit_app/app.py`.
+This repo also includes a Streamlit + PostgreSQL implementation under `streamlit_app/app.py`.
 
 Run it locally with Python:
 
@@ -160,12 +160,12 @@ JWT_EXPIRES_IN=7d
 STORAGE_DIR=
 
 DB_HOST=your-db-host
-DB_PORT=3306
+DB_PORT=5432
 DB_USER=your-db-user
 DB_PASSWORD=your-db-password
-DB_NAME=vehicle_qr_system
-DB_SSL=false
-DB_SSL_REJECT_UNAUTHORIZED=true
+DB_NAME=defaultdb
+DB_SSL=true
+DB_SSL_REJECT_UNAUTHORIZED=false
 
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=replace_with_a_strong_admin_password
@@ -176,8 +176,8 @@ Notes:
 - `FRONTEND_URL` can contain one or more comma-separated frontend domains.
 - `PUBLIC_BASE_URL` must be the public backend URL because QR codes and redirects use it.
 - `STORAGE_DIR` is optional for Vercel. It is only used if the app falls back to the local file store.
-- Set `DB_SSL=true` for hosted MySQL providers that require TLS. If the provider uses a self-signed or managed certificate chain that Node cannot verify directly, also set `DB_SSL_REJECT_UNAUTHORIZED=false`.
-- Use a managed MySQL database in production. Do not rely on the local file fallback there.
+- Set `DB_SSL=true` for hosted PostgreSQL providers that require TLS. For Aiven, `DB_SSL=true` and `DB_SSL_REJECT_UNAUTHORIZED=false` is the simplest starting point.
+- Use a managed PostgreSQL database in production. Do not rely on the local file fallback there.
 
 ### Deploy backend on Vercel
 
@@ -202,13 +202,13 @@ PUBLIC_BASE_URL=https://your-backend-project.vercel.app
 JWT_SECRET=replace_with_a_long_random_secret
 JWT_EXPIRES_IN=7d
 STORAGE_DIR=
-DB_HOST=your-mysql-host
-DB_PORT=3306
-DB_USER=your-mysql-user
-DB_PASSWORD=your-mysql-password
-DB_NAME=vehicle_qr_system
-DB_SSL=false
-DB_SSL_REJECT_UNAUTHORIZED=true
+DB_HOST=your-postgres-host
+DB_PORT=5432
+DB_USER=your-postgres-user
+DB_PASSWORD=your-postgres-password
+DB_NAME=defaultdb
+DB_SSL=true
+DB_SSL_REJECT_UNAUTHORIZED=false
 ADMIN_EMAIL=your-admin-email
 ADMIN_PASSWORD=your-admin-password
 ```
@@ -233,11 +233,11 @@ Create a second Vercel project with:
 
 ### Deploy order
 
-1. Deploy the MySQL database and import [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql).
+1. Deploy the PostgreSQL database and import [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql).
 2. Deploy the backend on Vercel with the backend environment values above.
 3. Deploy the frontend on Vercel with `VITE_API_BASE_URL` pointing at the deployed backend.
 4. Update `FRONTEND_URL` on the backend to the final frontend domain if it changes after deployment.
-5. Visit `/api/health` on the backend and verify it returns `{"status":"ok","storage":"mysql"}`.
+5. Visit `/api/health` on the backend and verify it returns `{"status":"ok","storage":"postgres"}`.
 
 ### Files to use
 

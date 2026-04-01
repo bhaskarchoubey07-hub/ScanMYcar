@@ -6,7 +6,7 @@ This directory contains a Streamlit version of the Smart Vehicle QR Contact Syst
 
 1. Create a Python virtual environment.
 2. Install dependencies from the repo root `requirements.txt`.
-3. Copy `streamlit_app/.env.example` to `streamlit_app/.env` and fill in your MySQL settings.
+3. Copy `streamlit_app/.env.example` to `streamlit_app/.env` and fill in your PostgreSQL settings.
 4. Start the app:
 
 ```bash

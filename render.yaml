@@ -20,17 +20,17 @@ services:
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        value: 3306
+        value: 5432
       - key: DB_USER
         sync: false
       - key: DB_PASSWORD
         sync: false
       - key: DB_NAME
-        value: vehicle_qr_system
+        value: defaultdb
       - key: DB_SSL
-        value: false
-      - key: DB_SSL_REJECT_UNAUTHORIZED
         value: true
+      - key: DB_SSL_REJECT_UNAUTHORIZED
+        value: false
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD

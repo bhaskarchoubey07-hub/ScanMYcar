@@ -10,7 +10,7 @@ const getApiErrorMessage = (error, fallbackMessage) => {
   }
 
   if (error?.request) {
-    return 'Cannot reach the server. Start the backend and make sure MySQL is running on port 3306.';
+    return 'Cannot reach the server. Start the backend and make sure PostgreSQL is reachable with the configured DB_HOST and DB_PORT.';
   }
 
   return fallbackMessage;

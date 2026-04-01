@@ -18,13 +18,14 @@ const createUser = async ({ name, email, phone, passwordHash, role = 'user' }) =
     });
   }
 
-  const [result] = await pool.execute(
+  const result = await pool.query(
     `INSERT INTO users (name, email, phone, password_hash, role)
-     VALUES (?, ?, ?, ?, ?)`,
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
     [name, email, phone, passwordHash, role]
   );
 
-  return result.insertId;
+  return result.rows[0].id;
 };
 
 const findUserByEmail = async (email) => {
@@ -33,8 +34,8 @@ const findUserByEmail = async (email) => {
     return data.users.find((user) => user.email === email) || null;
   }
 
-  const [rows] = await pool.execute('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
-  return rows[0] || null;
+  const result = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
+  return result.rows[0] || null;
 };
 
 const findUserById = async (id) => {
@@ -49,11 +50,11 @@ const findUserById = async (id) => {
     return safeUser;
   }
 
-  const [rows] = await pool.execute(
-    'SELECT id, name, email, phone, role, created_at FROM users WHERE id = ? LIMIT 1',
+  const result = await pool.query(
+    'SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1 LIMIT 1',
     [id]
   );
-  return rows[0] || null;
+  return result.rows[0] || null;
 };
 
 const listUsers = async () => {
@@ -64,12 +65,12 @@ const listUsers = async () => {
       .map(({ password_hash, ...user }) => user);
   }
 
-  const [rows] = await pool.execute(
+  const result = await pool.query(
     `SELECT id, name, email, phone, role, created_at
      FROM users
      ORDER BY created_at DESC`
   );
-  return rows;
+  return result.rows;
 };
 
 module.exports = {
