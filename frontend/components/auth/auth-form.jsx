@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
+import { getAuthRedirectUrl } from "@/lib/utils";
 
 export function AuthForm() {
   const router = useRouter();
@@ -18,12 +19,14 @@ export function AuthForm() {
   const sendOtp = () => {
     startTransition(async () => {
       setStatus("");
+      const redirectUrl = getAuthRedirectUrl();
+      console.info("Supabase OTP redirect URL:", redirectUrl);
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
             phone

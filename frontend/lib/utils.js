@@ -36,11 +36,22 @@ export function slugFromVehicle(vehicleNumber, id) {
   return `${normalizeVehicleNumber(vehicleNumber).toLowerCase()}-${String(id).slice(0, 8)}`;
 }
 
+export function getURL() {
+  let url =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.NODE_ENV === "development"
+      ? "http://localhost:3000"
+      : "https://scan-m-ycar-frontend.vercel.app");
+
+  return url.endsWith("/") ? url : `${url}/`;
+}
+
 export function getSiteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
-  );
+  return getURL().slice(0, -1);
+}
+
+export function getAuthRedirectUrl() {
+  return `${getURL()}auth/callback`;
 }
 
 export function buildPublicVehicleUrl(slug) {

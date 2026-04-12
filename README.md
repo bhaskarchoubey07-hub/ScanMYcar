@@ -44,18 +44,25 @@ backend/
 Create `frontend/.env.local`:
 
 ```env
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=https://scan-m-ycar-frontend.vercel.app
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
+
+For local development, you can override `NEXT_PUBLIC_SITE_URL=http://localhost:3000` in `frontend/.env.local`.
 
 ## Supabase Setup
 
 1. Create a Supabase project.
 2. Run [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql) in the SQL editor.
 3. Enable email OTP in Supabase Auth.
-4. Create an admin user by updating `public.users.role` to `admin` after signup.
+4. In Supabase Auth URL Configuration, set:
+   - Site URL: `https://scan-m-ycar-frontend.vercel.app/`
+   - Redirect URLs:
+     - `http://localhost:3000/auth/callback`
+     - `https://scan-m-ycar-frontend.vercel.app/auth/callback`
+5. Create an admin user by updating `public.users.role` to `admin` after signup.
 
 ## Local Development
 
@@ -72,6 +79,14 @@ npm run dev
 ```
 
 3. Open `http://localhost:3000`.
+
+## Auth Redirect Behavior
+
+- OTP emails use an environment-based redirect URL helper.
+- Development fallback: `http://localhost:3000/`
+- Production fallback: `https://scan-m-ycar-frontend.vercel.app/`
+- Callback route: `/auth/callback`
+- Authenticated users are automatically routed to `/dashboard`.
 
 ## Deployment
 
