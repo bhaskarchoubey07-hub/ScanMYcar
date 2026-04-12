@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import {
@@ -52,13 +52,20 @@ export function AuthForm() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
   const [status, setStatus] = useState("");
   const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
 
-  const completeAuth = () => {
+  useEffect(() => {
+    // Check localStorage on load
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      router.push("/dashboard");
+    }
+  }, [router]);
+
+  const completeAuth = (userData) => {
+    localStorage.setItem("user", JSON.stringify(userData));
     router.push("/dashboard");
     router.refresh();
   };
@@ -80,78 +87,32 @@ export function AuthForm() {
       setActiveAction("signin");
       setStatus("");
 
-      if (!email.trim()) {
-        setStatus("Email is required.");
+      if (!email || !password) {
+        setStatus("Email and password are required.");
         setActiveAction("");
         return;
       }
 
-      // If OTP code is present, verify it
-      if (otpCode.trim() && otpSent) {
-        const { data, error } = await supabase.auth.verifyOtp({
-          email,
-          token: otpCode,
-          type: 'magiclink'
-        });
-
-        if (error) {
-          setStatus(formatAuthMessage(error.message));
-          setActiveAction("");
-          return;
-        }
-
-        completeAuth();
-        return;
-      }
-
-      // Traditional password login if not OTP-ing or if no code entered yet
-      if (password) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (error) {
-          setStatus(formatAuthMessage(error.message));
-          setActiveAction("");
-          return;
-        }
-
-        completeAuth();
-      } else {
-        setStatus("Enter password or use OTP code.");
-        setActiveAction("");
-      }
-    });
-  };
-
-  const sendOtp = () => {
-    startTransition(async () => {
-      setActiveAction("send-otp");
-      setStatus("");
-
-      if (!email.trim()) {
-        setStatus("Please enter your email first.");
-        setActiveAction("");
-        return;
-      }
-
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: mode === "signup",
-        }
-      });
+      const { data: users, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .eq("password", password)
+        .limit(1);
 
       if (error) {
-        setStatus(formatAuthMessage(error.message));
+        setStatus("System error. Please try again.");
         setActiveAction("");
         return;
       }
 
-      setOtpSent(true);
-      setStatus("OTP code sent to your email!");
-      setActiveAction("");
+      if (!users || users.length === 0) {
+        setStatus("Invalid email or password");
+        setActiveAction("");
+        return;
+      }
+
+      completeAuth(users[0]);
     });
   };
 
@@ -160,47 +121,50 @@ export function AuthForm() {
       setActiveAction("create-account");
       setStatus("");
 
-      const validationError = validateInputs();
-      if (validationError) {
-        setStatus(validationError);
+      if (!email || !password) {
+        setStatus("Email and password are required.");
         setActiveAction("");
         return;
       }
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
+      if (password.length < 6) {
+        setStatus("Password must be at least 6 characters.");
+        setActiveAction("");
+        return;
+      }
+
+      // Check if user exists
+      const { data: existing } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        setStatus("User already exists");
+        setActiveAction("");
+        return;
+      }
+
+      const { data: newUser, error } = await supabase
+        .from("users")
+        .insert([
+          {
+            email,
+            password,
             full_name: fullName,
             phone
           }
-        }
-      });
+        ])
+        .select();
 
       if (error) {
-        setStatus(formatAuthMessage(error.message));
+        setStatus("Signup failed. Ensure the 'users' table has a password column.");
         setActiveAction("");
         return;
       }
 
-      if (data.session) {
-        completeAuth();
-        return;
-      }
-
-      const signInResult = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (signInResult.error) {
-        setStatus("Account created. Disable email confirmation in Supabase Auth if you want instant demo login.");
-        setActiveAction("");
-        return;
-      }
-
-      completeAuth();
+      completeAuth(newUser[0]);
     });
   };
 
@@ -211,7 +175,7 @@ export function AuthForm() {
           variants={delayedRise(0.04)}
           className="inline-flex rounded-full border border-neon/30 bg-neon/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-neon"
         >
-          Email & Password Authentication
+          Manual Local Authentication
         </motion.span>
         <motion.h1 variants={delayedRise(0.12)} className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
           Smart Vehicle Identity with rapid emergency outreach built in.
@@ -353,29 +317,8 @@ export function AuthForm() {
             onClick={createAccount}
             className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {activeAction === "create-account" ? "Creating..." : "Create Account"}
+            {activeAction === "create-account" ? "Creating Account..." : "Create Account"}
           </motion.button>
-
-          <motion.label variants={fieldReveal} className={`field transition-opacity duration-300 ${otpSent ? "opacity-100" : "opacity-40"}`}>
-            <div className="flex items-center justify-between">
-              <span>OTP</span>
-              <button 
-                type="button" 
-                onClick={sendOtp}
-                disabled={pending || !email}
-                className="text-xs font-semibold text-neon hover:underline disabled:opacity-50"
-              >
-                {activeAction === "send-otp" ? "Sending..." : otpSent ? "Resend code" : "Send code"}
-              </button>
-            </div>
-            <motion.input
-              whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(52, 211, 153, 0.16)" }}
-              transition={glowTransition}
-              value={otpCode}
-              onChange={(event) => setOtpCode(event.target.value)}
-              placeholder={otpSent ? "Check your email" : "Click 'Send code' to use OTP"}
-            />
-          </motion.label>
 
           <AnimatePresence mode="wait">
             {status && (
