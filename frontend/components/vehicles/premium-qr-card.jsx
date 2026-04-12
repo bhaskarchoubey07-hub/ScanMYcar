@@ -23,6 +23,13 @@ export function PremiumQrCard({ vehicle }) {
   const cardRef = useRef(null);
   const [theme, setTheme] = useState("emerald");
   const [downloading, setDownloading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+    setOrigin(window.location.origin);
+  }, []);
 
   const downloadCard = async () => {
     if (!cardRef.current) return;
@@ -43,6 +50,10 @@ export function PremiumQrCard({ vehicle }) {
   const printCard = () => {
     window.print();
   };
+
+  const qrValue = mounted 
+    ? `${origin}/v/${vehicle.qr_slug}`
+    : `https://scanmycar.com/v/${vehicle.qr_slug}`;
 
   return (
     <div className="space-y-8">
@@ -97,9 +108,7 @@ export function PremiumQrCard({ vehicle }) {
                 />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                    `${window.location.origin}/v/${vehicle.qr_slug}`
-                  )}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrValue)}`}
                   alt="Vehicle QR"
                   className="size-48"
                 />
