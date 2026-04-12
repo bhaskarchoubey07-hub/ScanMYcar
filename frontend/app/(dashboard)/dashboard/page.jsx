@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageReveal } from "@/components/ui/motion-effects";
 import { ScanChart } from "@/components/dashboard/scan-chart";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { VehicleList } from "@/components/vehicles/vehicle-list";
@@ -11,7 +12,7 @@ export default async function DashboardPage() {
   const dashboard = await getUserDashboard(user.id);
 
   return (
-    <div className="space-y-8">
+    <PageReveal className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-neon">Fleet Overview</p>
@@ -60,6 +61,6 @@ export default async function DashboardPage() {
         </div>
         <VehicleList vehicles={dashboard.vehicles.slice(0, 4)} />
       </section>
-    </div>
+    </PageReveal>
   );
 }

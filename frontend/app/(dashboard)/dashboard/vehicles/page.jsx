@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageReveal } from "@/components/ui/motion-effects";
 import { VehicleList } from "@/components/vehicles/vehicle-list";
 import { requireUser } from "@/lib/auth";
 import { getUserDashboard } from "@/lib/data";
@@ -8,7 +9,7 @@ export default async function VehiclesPage() {
   const dashboard = await getUserDashboard(user.id);
 
   return (
-    <div className="space-y-6">
+    <PageReveal className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-neon">Vehicle Management</p>
@@ -20,6 +21,6 @@ export default async function VehiclesPage() {
       </div>
 
       <VehicleList vehicles={dashboard.vehicles} />
-    </div>
+    </PageReveal>
   );
 }

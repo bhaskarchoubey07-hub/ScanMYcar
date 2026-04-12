@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageReveal } from "@/components/ui/motion-effects";
 import { ScanChart } from "@/components/dashboard/scan-chart";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { VehicleList } from "@/components/vehicles/vehicle-list";
@@ -11,7 +12,7 @@ export default async function AdminPage() {
   const admin = await getAdminDashboard();
 
   return (
-    <div className="space-y-8">
+    <PageReveal className="space-y-8">
       <div>
         <p className="text-xs uppercase tracking-[0.35em] text-glow">Admin Dashboard</p>
         <h1 className="mt-3 text-4xl font-semibold text-white">Analytics, fleet operations, and emergency oversight</h1>
@@ -55,6 +56,6 @@ export default async function AdminPage() {
         </div>
         <VehicleList vehicles={admin.vehicles.slice(0, 8)} admin />
       </section>
-    </div>
+    </PageReveal>
   );
 }
