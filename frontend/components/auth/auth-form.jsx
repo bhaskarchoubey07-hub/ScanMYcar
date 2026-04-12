@@ -1,10 +1,19 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { delayedRise, fieldReveal, otpReveal, pageReveal, panelReveal, pulseGlow, riseIn, staggerContainer } from "@/lib/motion";
+import {
+  delayedRise,
+  fieldReveal,
+  otpReveal,
+  pageReveal,
+  panelReveal,
+  pulseGlow,
+  riseIn,
+  staggerContainer
+} from "@/lib/motion";
 import { getAuthRedirectUrl } from "@/lib/utils";
 
 const featureItems = [
@@ -19,19 +28,70 @@ const glowTransition = {
   damping: 18
 };
 
+function formatAuthMessage(message) {
+  const normalized = String(message || "").toLowerCase();
+
+  if (normalized.includes("rate limit")) {
+    return "Too many OTP requests. Use Quick Login or wait 30 seconds.";
+  }
+
+  if (normalized.includes("invalid login credentials")) {
+    return "Wrong email or password. Try Quick Login again or create an account.";
+  }
+
+  if (normalized.includes("invalid token") || normalized.includes("token")) {
+    return "Invalid OTP. Please check the code and try again.";
+  }
+
+  return message || "Something went wrong. Please try again.";
+}
+
 export function AuthForm() {
   const router = useRouter();
   const supabase = createClient();
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
 
+  useEffect(() => {
+    if (!cooldown) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setCooldown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [cooldown]);
+
+  const completeAuth = () => {
+    router.push("/dashboard");
+    router.refresh();
+  };
+
   const sendOtp = () => {
+    if (cooldown > 0) {
+      setStatus(`Too many OTP requests. Use Quick Login or wait ${cooldown} seconds.`);
+      return;
+    }
+
     startTransition(async () => {
+      setActiveAction("otp");
       setStatus("");
       const redirectUrl = getAuthRedirectUrl();
       console.info("Supabase OTP redirect URL:", redirectUrl);
@@ -48,12 +108,24 @@ export function AuthForm() {
         }
       });
 
-      setStatus(error ? error.message : "OTP sent. Check your email for the code or secure sign-in link.");
+      if (error) {
+        setStatus(formatAuthMessage(error.message));
+        if (String(error.message || "").toLowerCase().includes("rate limit")) {
+          setCooldown(30);
+        }
+        setActiveAction("");
+        return;
+      }
+
+      setCooldown(30);
+      setStatus("OTP sent. Check your email for the code or secure sign-in link.");
+      setActiveAction("");
     });
   };
 
   const verifyOtp = () => {
     startTransition(async () => {
+      setActiveAction("verify");
       setStatus("");
 
       const { error } = await supabase.auth.verifyOtp({
@@ -63,12 +135,97 @@ export function AuthForm() {
       });
 
       if (error) {
-        setStatus(error.message);
+        setStatus(formatAuthMessage(error.message));
+        setActiveAction("");
         return;
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      completeAuth();
+    });
+  };
+
+  const signInWithPassword = async () => {
+    return supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+  };
+
+  const signUpWithPassword = async () => {
+    return supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: getAuthRedirectUrl(),
+        data: {
+          full_name: fullName,
+          phone
+        }
+      }
+    });
+  };
+
+  const quickLogin = () => {
+    startTransition(async () => {
+      setActiveAction("quick-login");
+      setStatus("");
+
+      const loginResult = await signInWithPassword();
+      if (!loginResult.error && loginResult.data.session) {
+        completeAuth();
+        return;
+      }
+
+      const signUpResult = await signUpWithPassword();
+
+      if (signUpResult.error) {
+        const normalized = String(signUpResult.error.message || "").toLowerCase();
+        if (normalized.includes("already registered") || normalized.includes("user already registered")) {
+          setStatus("Wrong password. This account already exists, so please try Quick Login again with the correct password.");
+        } else {
+          setStatus(formatAuthMessage(signUpResult.error.message));
+        }
+        setActiveAction("");
+        return;
+      }
+
+      const postSignUpLogin = await signInWithPassword();
+      if (postSignUpLogin.error) {
+        setStatus(formatAuthMessage(postSignUpLogin.error.message));
+        setActiveAction("");
+        return;
+      }
+
+      completeAuth();
+    });
+  };
+
+  const createAccount = () => {
+    startTransition(async () => {
+      setActiveAction("create-account");
+      setStatus("");
+
+      const { data, error } = await signUpWithPassword();
+
+      if (error) {
+        setStatus(formatAuthMessage(error.message));
+        setActiveAction("");
+        return;
+      }
+
+      if (data.session) {
+        completeAuth();
+        return;
+      }
+
+      const loginResult = await signInWithPassword();
+      if (!loginResult.error && loginResult.data.session) {
+        completeAuth();
+        return;
+      }
+
+      setStatus("Account created. If your project requires email confirmation, check your inbox and then sign in.");
+      setActiveAction("");
     });
   };
 
@@ -186,17 +343,30 @@ export function AuthForm() {
             />
           </motion.label>
 
+          <motion.label variants={fieldReveal} className="field">
+            <span>Password</span>
+            <motion.input
+              whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+              transition={glowTransition}
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Use password for Quick Login"
+            />
+          </motion.label>
+
           <motion.button
             type="button"
             variants={fieldReveal}
-            animate="rest"
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.97 }}
-            disabled={pending || !email}
+            disabled={pending || !email || cooldown > 0}
             onClick={sendOtp}
-            className="primary-button w-full"
+            className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <motion.span variants={pulseGlow}>{pending ? "Sending..." : "Send OTP"}</motion.span>
+            <motion.span animate="rest" variants={pulseGlow}>
+              {activeAction === "otp" ? "Sending..." : cooldown > 0 ? `Send OTP (${cooldown}s)` : "Send OTP"}
+            </motion.span>
           </motion.button>
 
           <motion.label variants={otpReveal} className="field">
@@ -217,10 +387,36 @@ export function AuthForm() {
             whileTap={{ scale: 0.98 }}
             disabled={pending || otp.length < 6}
             onClick={verifyOtp}
-            className="secondary-button w-full"
+            className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {pending ? "Verifying..." : "Verify & continue"}
+            {activeAction === "verify" ? "Verifying..." : "Verify & continue"}
           </motion.button>
+
+          <motion.div variants={staggerContainer} className="grid gap-3 sm:grid-cols-2">
+            <motion.button
+              type="button"
+              variants={fieldReveal}
+              whileHover={{ scale: 1.03, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={pending || !email || !password}
+              onClick={quickLogin}
+              className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {activeAction === "quick-login" ? "Working..." : "Quick Login (No OTP)"}
+            </motion.button>
+
+            <motion.button
+              type="button"
+              variants={fieldReveal}
+              whileHover={{ scale: 1.03, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={pending || !email || !password}
+              onClick={createAccount}
+              className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {activeAction === "create-account" ? "Creating..." : "Create Account"}
+            </motion.button>
+          </motion.div>
 
           <AnimatePresence mode="wait">
             {status && (
