@@ -1,17 +1,19 @@
 {
-  "name": "smart-vehicle-qr-contact-system",
+  "name": "smart-vehicle-identity-emergency-response-system",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "workspaces": [
     "backend",
     "frontend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev": "npm run dev -w frontend",
     "build": "npm run build -w frontend",
-    "start": "npm run start -w backend"
+    "start": "npm run start -w frontend"
   },
-  "devDependencies": {
-    "concurrently": "^9.1.2"
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.0",
+    "chart.js": "^4.5.1",
+    "react-chartjs-2": "^5.3.1"
   }
 }
