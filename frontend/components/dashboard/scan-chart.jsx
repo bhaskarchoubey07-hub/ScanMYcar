@@ -1,48 +1,84 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { chartBar, riseIn, staggerFast } from "@/lib/motion";
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid
+} from "recharts";
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-3 shadow-2xl backdrop-blur-md">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</p>
+        <p className="mt-1 text-lg font-semibold text-white">
+          {payload[0].value} <span className="text-xs font-normal text-slate-400">Scans</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export function ScanChart({ data }) {
-  const max = Math.max(...data.map((item) => item.total), 1);
-
   return (
     <motion.div
-      variants={riseIn}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.25 }}
-      className="glass-panel rounded-3xl p-6"
+      initial={{ opacity: 0, scale: 0.95 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true }}
+      className="glass-panel overflow-hidden rounded-3xl p-6"
     >
-      <div>
-        <h3 className="text-lg font-semibold text-white">Daily scan trend</h3>
-        <p className="text-sm text-slate-400">Last 7 days of QR activity</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Daily scan trend</h2>
+          <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Last 7 days activity</p>
+        </div>
+        <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-bold text-emerald-500 border border-emerald-500/20">
+          REAL-TIME
+        </div>
       </div>
 
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerFast} className="mt-8 grid h-64 grid-cols-7 items-end gap-3">
-        {data.length ? (
-          data.map((item) => (
-            <motion.div key={item.day} variants={chartBar} className="flex h-full flex-col justify-end gap-3 origin-bottom">
-              <div className="relative flex-1 rounded-3xl bg-white/5 p-2">
-                <motion.div
-                  className="absolute inset-x-2 bottom-2 rounded-2xl bg-gradient-to-t from-glow to-neon"
-                  style={{ height: `${Math.max((item.total / max) * 100, 10)}%` }}
-                  initial={{ opacity: 0.3, scaleY: 0.4 }}
-                  whileInView={{ opacity: 1, scaleY: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-white">{item.total}</p>
-                <p className="text-xs text-slate-500">{item.label}</p>
-              </div>
-            </motion.div>
-          ))
-        ) : (
-          <p className="col-span-7 text-sm text-slate-400">No scan activity yet.</p>
-        )}
-      </motion.div>
+      <div className="mt-8 h-[240px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+            <XAxis
+              dataKey="label"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#64748b", fontSize: 10, fontWeight: 600 }}
+              dy={10}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#64748b", fontSize: 10, fontWeight: 600 }}
+              dx={-10}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }} />
+            <Area
+              type="monotone"
+              dataKey="total"
+              stroke="#10b981"
+              strokeWidth={3}
+              fillOpacity={1}
+              fill="url(#colorTotal)"
+              animationDuration={2000}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </motion.div>
   );
 }

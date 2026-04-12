@@ -44,7 +44,12 @@ export function VehicleList({ vehicles, admin = false }) {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <motion.a href={`/api/qr/${vehicle.qr_slug}`} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.98 }} className="primary-button">
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.985 }}>
+                <Link href={`/dashboard/vehicles/${vehicle.id}/qr`} className="primary-button bg-glow text-slate-950 border-none">
+                  Premium Card
+                </Link>
+              </motion.div>
+              <motion.a href={`/api/qr/${vehicle.qr_slug}`} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.98 }} className="secondary-button !bg-white/10">
                 Download QR
               </motion.a>
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.985 }}>
