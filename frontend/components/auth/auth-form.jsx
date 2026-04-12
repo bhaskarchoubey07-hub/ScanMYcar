@@ -56,21 +56,19 @@ export function AuthForm() {
   const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
 
+  // Auto-redirect if session exists
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.push("/dashboard");
+        router.refresh();
+      }
+    });
+  }, [supabase, router]);
+
   const completeAuth = () => {
     router.push("/dashboard");
     router.refresh();
-  };
-
-  const validateInputs = () => {
-    if (!email.trim()) {
-      return "Email is required.";
-    }
-
-    if (password.length < 6) {
-      return "Password must be at least 6 characters.";
-    }
-
-    return "";
   };
 
   const signIn = () => {
@@ -78,24 +76,26 @@ export function AuthForm() {
       setActiveAction("signin");
       setStatus("");
 
-      if (!email || !password) {
-        setStatus("Email and password are required.");
+      try {
+        if (!email || !password) {
+          setStatus("Email and password are required.");
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) {
+          setStatus(formatAuthMessage(error.message));
+          return;
+        }
+
+        completeAuth();
+      } finally {
         setActiveAction("");
-        return;
       }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        setStatus(formatAuthMessage(error.message));
-        setActiveAction("");
-        return;
-      }
-
-      completeAuth();
     });
   };
 
@@ -104,37 +104,42 @@ export function AuthForm() {
       setActiveAction("create-account");
       setStatus("");
 
-      if (!email || !password) {
-        setStatus("Email and password are required.");
-        setActiveAction("");
-        return;
-      }
-
-      if (password.length < 6) {
-        setStatus("Password must be at least 6 characters.");
-        setActiveAction("");
-        return;
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone
-          }
+      try {
+        if (!email || !password) {
+          setStatus("Email and password are required.");
+          return;
         }
-      });
 
-      if (error) {
-        setStatus(formatAuthMessage(error.message));
+        if (password.length < 6) {
+          setStatus("Password must be at least 6 characters.");
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              phone
+            }
+          }
+        });
+
+        if (error) {
+          setStatus(formatAuthMessage(error.message));
+          return;
+        }
+
+        if (data.session) {
+          setStatus("Account created! Redirecting...");
+          completeAuth();
+        } else {
+          setStatus("Account created! Please check your email to confirm and log in.");
+        }
+      } finally {
         setActiveAction("");
-        return;
       }
-
-      setStatus(data.session ? "Account created!" : "Please check your email to confirm your account.");
-      if (data.session) completeAuth();
     });
   };
 
@@ -178,7 +183,7 @@ export function AuthForm() {
         variants={panelReveal}
         initial="hidden"
         animate="visible"
-        className="glass-panel floating-glow rounded-[2rem] p-7 shadow-glass"
+        className="glass-panel floating-glow rounded-[2rem] p-7 shadow-glass overflow-y-auto max-h-[min(680px,90vh)] scrollbar-hide"
       >
         <motion.div
           initial={{ opacity: 0, y: 10 }}
