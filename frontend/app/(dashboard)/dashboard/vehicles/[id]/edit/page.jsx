@@ -1,14 +1,41 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { notFound, useParams } from "next/navigation";
 import { VehicleForm } from "@/components/vehicles/vehicle-form";
-import { requireUser } from "@/lib/auth";
-import { getVehicleForEditor } from "@/lib/data";
+import { createClient } from "@/lib/supabase/browser";
 
-export default async function EditVehiclePage({ params }) {
-  const { user, profile } = await requireUser();
-  const { id } = await params;
-  const vehicle = await getVehicleForEditor(id);
+export default function EditVehiclePage() {
+  const { id } = useParams();
+  const supabase = createClient();
+  const [vehicle, setVehicle] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!vehicle || (vehicle.user_id !== user.id && profile?.role !== "admin")) {
+  useEffect(() => {
+    const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
+    
+    supabase
+      .from("vehicles")
+      .select("*")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => {
+        if (data && (data.user_id === savedUser.id || savedUser.role === "admin")) {
+          setVehicle(data);
+        }
+        setLoading(false);
+      });
+  }, [id, supabase]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!vehicle) {
     notFound();
   }
 
