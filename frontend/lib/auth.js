@@ -5,15 +5,18 @@ import { getAdminClient } from "@/lib/supabase/admin";
 async function ensureUserProfile(user) {
   const admin = getAdminClient();
   const metadata = user.user_metadata || {};
+  
   const payload = {
     id: user.id,
     email: user.email,
     full_name: metadata.full_name || metadata.name || user.email?.split("@")[0] || "Vehicle Owner",
     phone: metadata.phone || "",
-    role: metadata.role === "admin" ? "admin" : "user"
+    role: metadata.role === "admin" ? "admin" : "user",
+    metadata: metadata
   };
 
-  await admin.from("users").upsert(payload, { onConflict: "id" });
+  const { error } = await admin.from("users").upsert(payload, { onConflict: "id" });
+  if (error) console.error("Profile sync failed:", error.message);
 }
 
 export async function getCurrentSession() {

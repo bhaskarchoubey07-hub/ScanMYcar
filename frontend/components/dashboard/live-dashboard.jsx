@@ -15,12 +15,11 @@ export function LiveDashboard({
   const supabase = createClient();
   const [stats, setStats] = useState(initialStats);
   const [activity, setActivity] = useState(initialActivity);
+  const [liveScans, setLiveScans] = useState([]);
   const [newScanToast, setNewScanToast] = useState(null);
 
   useEffect(() => {
     // 1. Subscribe to Realtime Scans
-    // We listen to all scans, but only act if it belongs to one of the user's vehicles.
-    // In a real production app, we would use private channels or filtered payloads.
     const scanChannel = supabase
       .channel("live-scans")
       .on(
@@ -29,7 +28,6 @@ export function LiveDashboard({
         async (payload) => {
           const newScan = payload.new;
           
-          // Verify if this scan belongs to the user's vehicles
           const { data: vehicle } = await supabase
             .from("vehicles")
             .select("user_id, vehicle_number")
@@ -42,6 +40,9 @@ export function LiveDashboard({
               ...prev,
               totalScans: prev.totalScans + 1
             }));
+
+            // Update Live Scans for Heatmap
+            setLiveScans(prev => [newScan, ...prev].slice(0, 50));
 
             // Update Activity Feed
             const entry = {
@@ -125,7 +126,7 @@ export function LiveDashboard({
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-50" />
               <div className="relative flex items-center gap-4">
                 <div className="rounded-2xl bg-emerald-500/20 p-3 text-emerald-400">
-                  <Activity className="size-6 animate-pulse" />
+                  <Zap className="size-6 animate-pulse" />
                 </div>
                 <div>
                   <h4 className="font-bold text-white">{newScanToast.title}</h4>
@@ -142,9 +143,7 @@ export function LiveDashboard({
       </AnimatePresence>
 
       {/* Inject Live Data into Children */}
-      {/* We use a simple pattern of passing props to children or providing a context.
-          For the current dashboard structure, we'll wrap the charts and stats in the Page with these live values. */}
-      {children({ stats, activity })}
+      {children({ stats, activity, liveScans })}
     </>
   );
 }
