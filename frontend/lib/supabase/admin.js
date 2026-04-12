@@ -4,7 +4,8 @@ let adminClient;
 
 export function getAdminClient() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY.");
+    console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY is missing. Profile syncing will be disabled.");
+    return null;
   }
 
   if (!adminClient) {

@@ -131,12 +131,9 @@ export function AuthForm() {
           return;
         }
 
-        if (data.session) {
-          setStatus("Account created! Redirecting...");
-          completeAuth();
-        } else {
-          setStatus("Account created! Please check your email to confirm and log in.");
-        }
+        // Instant redirect since Email Confirmation is OFF
+        setStatus("Identity secure. Redirecting...");
+        completeAuth();
       } finally {
         setActiveAction("");
       }

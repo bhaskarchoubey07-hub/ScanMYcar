@@ -1,14 +1,19 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { PageReveal } from "@/components/ui/motion-effects";
 import { ScanChart } from "@/components/dashboard/scan-chart";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { VehicleList } from "@/components/vehicles/vehicle-list";
 import { LiveDashboard } from "@/components/dashboard/live-dashboard";
-import { ScanHeatmap } from "@/components/dashboard/scan-heatmap";
 import { SecurityMonitor } from "@/components/dashboard/security-monitor";
 import { requireUser } from "@/lib/auth";
 import { getUserDashboard } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
+
+const ScanHeatmap = dynamic(
+  () => import("@/components/dashboard/scan-heatmap").then((mod) => mod.ScanHeatmap),
+  { ssr: false, loading: () => <div className="h-[400px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
+);
 
 export default async function DashboardPage() {
   const { user } = await requireUser();

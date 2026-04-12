@@ -4,6 +4,8 @@ import { getAdminClient } from "@/lib/supabase/admin";
 
 async function ensureUserProfile(user) {
   const admin = getAdminClient();
+  if (!admin) return;
+
   const metadata = user.user_metadata || {};
   
   const payload = {
