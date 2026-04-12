@@ -14,6 +14,7 @@ export function LogoutButton() {
       className="secondary-button w-full"
       onClick={() =>
         startTransition(async () => {
+          localStorage.removeItem("user");
           const supabase = createClient();
           await supabase.auth.signOut();
           router.push("/auth");
