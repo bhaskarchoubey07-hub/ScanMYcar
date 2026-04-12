@@ -20,10 +20,9 @@ export function VehicleForm({ vehicle, scope = "owner" }) {
   const submit = (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
 
     startTransition(async () => {
-      const result = await upsertVehicleAction(formData, scope, savedUser.id);
+      const result = await upsertVehicleAction(formData, scope);
       setMessage(result.message);
       if (result.success && result.redirectTo) {
         router.push(result.redirectTo);
@@ -37,10 +36,8 @@ export function VehicleForm({ vehicle, scope = "owner" }) {
       return;
     }
 
-    const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
-
     startTransition(async () => {
-      const result = await deleteVehicleAction(vehicle.id, savedUser.id);
+      const result = await deleteVehicleAction(vehicle.id);
       setMessage(result.message);
       if (result.success) {
         router.push(scope === "admin" ? "/dashboard/admin" : "/dashboard/vehicles");

@@ -56,16 +56,7 @@ export function AuthForm() {
   const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    // Check localStorage on load
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      router.push("/dashboard");
-    }
-  }, [router]);
-
-  const completeAuth = (userData) => {
-    localStorage.setItem("user", JSON.stringify(userData));
+  const completeAuth = () => {
     router.push("/dashboard");
     router.refresh();
   };
@@ -93,26 +84,18 @@ export function AuthForm() {
         return;
       }
 
-      const { data: users, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .eq("password", password)
-        .limit(1);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
       if (error) {
-        setStatus("System error. Please try again.");
+        setStatus(formatAuthMessage(error.message));
         setActiveAction("");
         return;
       }
 
-      if (!users || users.length === 0) {
-        setStatus("Invalid email or password");
-        setActiveAction("");
-        return;
-      }
-
-      completeAuth(users[0]);
+      completeAuth();
     });
   };
 
@@ -133,38 +116,25 @@ export function AuthForm() {
         return;
       }
 
-      // Check if user exists
-      const { data: existing } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .limit(1);
-
-      if (existing && existing.length > 0) {
-        setStatus("User already exists");
-        setActiveAction("");
-        return;
-      }
-
-      const { data: newUser, error } = await supabase
-        .from("users")
-        .insert([
-          {
-            email,
-            password,
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
             full_name: fullName,
             phone
           }
-        ])
-        .select();
+        }
+      });
 
       if (error) {
-        setStatus("Signup failed. Ensure the 'users' table has a password column.");
+        setStatus(formatAuthMessage(error.message));
         setActiveAction("");
         return;
       }
 
-      completeAuth(newUser[0]);
+      setStatus(data.session ? "Account created!" : "Please check your email to confirm your account.");
+      if (data.session) completeAuth();
     });
   };
 
@@ -175,7 +145,7 @@ export function AuthForm() {
           variants={delayedRise(0.04)}
           className="inline-flex rounded-full border border-neon/30 bg-neon/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-neon"
         >
-          Manual Local Authentication
+          Secure User Portal
         </motion.span>
         <motion.h1 variants={delayedRise(0.12)} className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
           Smart Vehicle Identity with rapid emergency outreach built in.

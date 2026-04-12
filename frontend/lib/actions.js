@@ -36,11 +36,11 @@ function readVehiclePayload(formData) {
   };
 }
 
-export async function upsertVehicleAction(formData, scope = "owner", userId = null) {
+export async function upsertVehicleAction(formData, scope = "owner") {
+  const { user, profile } = await requireUser();
   const supabase = await createClient();
   const recordId = formData.get("id") || null;
   const payload = readVehiclePayload(formData);
-  const effectiveUserId = userId || formData.get("user_id");
 
   if (!payload.vehicle_number || !payload.owner_name || !payload.owner_phone || !payload.emergency_contact) {
     return { success: false, message: "Complete all required vehicle fields." };
@@ -53,7 +53,7 @@ export async function upsertVehicleAction(formData, scope = "owner", userId = nu
       return { success: false, message: "Vehicle record not found." };
     }
 
-    const canEdit = existing.user_id === effectiveUserId || scope === "admin";
+    const canEdit = existing.user_id === user.id || profile?.role === "admin" || scope === "admin";
     if (!canEdit) {
       return { success: false, message: "You do not have permission to edit this vehicle." };
     }
@@ -91,7 +91,7 @@ export async function upsertVehicleAction(formData, scope = "owner", userId = nu
   const { error } = await supabase.from("vehicles").insert({
     ...payload,
     id,
-    user_id: effectiveUserId,
+    user_id: user.id,
     qr_slug: slug
   });
 
@@ -124,7 +124,8 @@ export async function upsertVehicleAction(formData, scope = "owner", userId = nu
   };
 }
 
-export async function deleteVehicleAction(vehicleId, userId) {
+export async function deleteVehicleAction(vehicleId) {
+  const { user, profile } = await requireUser();
   const supabase = await createClient();
   const { data: existing } = await supabase.from("vehicles").select("*").eq("id", vehicleId).single();
 
@@ -132,7 +133,7 @@ export async function deleteVehicleAction(vehicleId, userId) {
     return { success: false, message: "Vehicle not found." };
   }
 
-  if (existing.user_id !== userId) {
+  if (existing.user_id !== user.id && profile?.role !== "admin") {
     return { success: false, message: "You do not have permission to delete this vehicle." };
   }
 
