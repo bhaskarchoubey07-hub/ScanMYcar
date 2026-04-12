@@ -52,6 +52,8 @@ export function AuthForm() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [status, setStatus] = useState("");
   const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
@@ -78,16 +80,67 @@ export function AuthForm() {
       setActiveAction("signin");
       setStatus("");
 
-      const validationError = validateInputs();
-      if (validationError) {
-        setStatus(validationError);
+      if (!email.trim()) {
+        setStatus("Email is required.");
         setActiveAction("");
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      // If OTP code is present, verify it
+      if (otpCode.trim() && otpSent) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email,
+          token: otpCode,
+          type: 'magiclink'
+        });
+
+        if (error) {
+          setStatus(formatAuthMessage(error.message));
+          setActiveAction("");
+          return;
+        }
+
+        completeAuth();
+        return;
+      }
+
+      // Traditional password login if not OTP-ing or if no code entered yet
+      if (password) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) {
+          setStatus(formatAuthMessage(error.message));
+          setActiveAction("");
+          return;
+        }
+
+        completeAuth();
+      } else {
+        setStatus("Enter password or use OTP code.");
+        setActiveAction("");
+      }
+    });
+  };
+
+  const sendOtp = () => {
+    startTransition(async () => {
+      setActiveAction("send-otp");
+      setStatus("");
+
+      if (!email.trim()) {
+        setStatus("Please enter your email first.");
+        setActiveAction("");
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password
+        options: {
+          shouldCreateUser: mode === "signup",
+        }
       });
 
       if (error) {
@@ -96,7 +149,9 @@ export function AuthForm() {
         return;
       }
 
-      completeAuth();
+      setOtpSent(true);
+      setStatus("OTP code sent to your email!");
+      setActiveAction("");
     });
   };
 
@@ -301,12 +356,24 @@ export function AuthForm() {
             {activeAction === "create-account" ? "Creating..." : "Create Account"}
           </motion.button>
 
-          <motion.label variants={fieldReveal} className="field opacity-60">
-            <span>OTP</span>
+          <motion.label variants={fieldReveal} className={`field transition-opacity duration-300 ${otpSent ? "opacity-100" : "opacity-40"}`}>
+            <div className="flex items-center justify-between">
+              <span>OTP</span>
+              <button 
+                type="button" 
+                onClick={sendOtp}
+                disabled={pending || !email}
+                className="text-xs font-semibold text-neon hover:underline disabled:opacity-50"
+              >
+                {activeAction === "send-otp" ? "Sending..." : otpSent ? "Resend code" : "Send code"}
+              </button>
+            </div>
             <motion.input
-              disabled
-              value=""
-              placeholder="OTP login removed for this build"
+              whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(52, 211, 153, 0.16)" }}
+              transition={glowTransition}
+              value={otpCode}
+              onChange={(event) => setOtpCode(event.target.value)}
+              placeholder={otpSent ? "Check your email" : "Click 'Send code' to use OTP"}
             />
           </motion.label>
 
