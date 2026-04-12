@@ -22,7 +22,7 @@ function MapController({ center }) {
   return null;
 }
 
-export function ScanHeatmap({ scans = [] }) {
+export default function ScanHeatmap({ scans = [] }) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {

@@ -11,7 +11,7 @@ import { getUserDashboard } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
 const ScanHeatmap = dynamic(
-  () => import("@/components/dashboard/scan-heatmap").then((mod) => mod.ScanHeatmap),
+  () => import("@/components/dashboard/scan-heatmap"),
   { ssr: false, loading: () => <div className="h-[400px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
 );
 
