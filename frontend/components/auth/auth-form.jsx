@@ -1,20 +1,18 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import {
   delayedRise,
   fieldReveal,
-  otpReveal,
   pageReveal,
   panelReveal,
   pulseGlow,
   riseIn,
   staggerContainer
 } from "@/lib/motion";
-import { getAuthRedirectUrl } from "@/lib/utils";
 
 const featureItems = [
   ["Dynamic QR", "Unique public profile for every vehicle"],
@@ -31,16 +29,16 @@ const glowTransition = {
 function formatAuthMessage(message) {
   const normalized = String(message || "").toLowerCase();
 
-  if (normalized.includes("rate limit")) {
-    return "Too many OTP requests. Use Quick Login or wait 30 seconds.";
+  if (normalized.includes("already registered") || normalized.includes("user already registered")) {
+    return "User already exists.";
   }
 
   if (normalized.includes("invalid login credentials")) {
-    return "Wrong email or password. Try Quick Login again or create an account.";
+    return "Invalid credentials.";
   }
 
-  if (normalized.includes("invalid token") || normalized.includes("token")) {
-    return "Invalid OTP. Please check the code and try again.";
+  if (normalized.includes("password")) {
+    return "Password must be at least 6 characters.";
   }
 
   return message || "Something went wrong. Please try again.";
@@ -52,146 +50,48 @@ export function AuthForm() {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState("");
-  const [cooldown, setCooldown] = useState(0);
   const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!cooldown) {
-      return undefined;
-    }
-
-    const timer = window.setInterval(() => {
-      setCooldown((current) => {
-        if (current <= 1) {
-          window.clearInterval(timer);
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [cooldown]);
 
   const completeAuth = () => {
     router.push("/dashboard");
     router.refresh();
   };
 
-  const sendOtp = () => {
-    if (cooldown > 0) {
-      setStatus(`Too many OTP requests. Use Quick Login or wait ${cooldown} seconds.`);
-      return;
+  const validateInputs = () => {
+    if (!email.trim()) {
+      return "Email is required.";
     }
 
-    startTransition(async () => {
-      setActiveAction("otp");
-      setStatus("");
-      const redirectUrl = getAuthRedirectUrl();
-      console.info("Supabase OTP redirect URL:", redirectUrl);
+    if (password.length < 6) {
+      return "Password must be at least 6 characters.";
+    }
 
-      const { error } = await supabase.auth.signInWithOtp({
+    return "";
+  };
+
+  const signIn = () => {
+    startTransition(async () => {
+      setActiveAction("signin");
+      setStatus("");
+
+      const validationError = validateInputs();
+      if (validationError) {
+        setStatus(validationError);
+        setActiveAction("");
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName,
-            phone
-          }
-        }
+        password
       });
 
       if (error) {
         setStatus(formatAuthMessage(error.message));
-        if (String(error.message || "").toLowerCase().includes("rate limit")) {
-          setCooldown(30);
-        }
-        setActiveAction("");
-        return;
-      }
-
-      setCooldown(30);
-      setStatus("OTP sent. Check your email for the code or secure sign-in link.");
-      setActiveAction("");
-    });
-  };
-
-  const verifyOtp = () => {
-    startTransition(async () => {
-      setActiveAction("verify");
-      setStatus("");
-
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "email"
-      });
-
-      if (error) {
-        setStatus(formatAuthMessage(error.message));
-        setActiveAction("");
-        return;
-      }
-
-      completeAuth();
-    });
-  };
-
-  const signInWithPassword = async () => {
-    return supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-  };
-
-  const signUpWithPassword = async () => {
-    return supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: getAuthRedirectUrl(),
-        data: {
-          full_name: fullName,
-          phone
-        }
-      }
-    });
-  };
-
-  const quickLogin = () => {
-    startTransition(async () => {
-      setActiveAction("quick-login");
-      setStatus("");
-
-      const loginResult = await signInWithPassword();
-      if (!loginResult.error && loginResult.data.session) {
-        completeAuth();
-        return;
-      }
-
-      const signUpResult = await signUpWithPassword();
-
-      if (signUpResult.error) {
-        const normalized = String(signUpResult.error.message || "").toLowerCase();
-        if (normalized.includes("already registered") || normalized.includes("user already registered")) {
-          setStatus("Wrong password. This account already exists, so please try Quick Login again with the correct password.");
-        } else {
-          setStatus(formatAuthMessage(signUpResult.error.message));
-        }
-        setActiveAction("");
-        return;
-      }
-
-      const postSignUpLogin = await signInWithPassword();
-      if (postSignUpLogin.error) {
-        setStatus(formatAuthMessage(postSignUpLogin.error.message));
         setActiveAction("");
         return;
       }
@@ -205,7 +105,23 @@ export function AuthForm() {
       setActiveAction("create-account");
       setStatus("");
 
-      const { data, error } = await signUpWithPassword();
+      const validationError = validateInputs();
+      if (validationError) {
+        setStatus(validationError);
+        setActiveAction("");
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone
+          }
+        }
+      });
 
       if (error) {
         setStatus(formatAuthMessage(error.message));
@@ -218,14 +134,18 @@ export function AuthForm() {
         return;
       }
 
-      const loginResult = await signInWithPassword();
-      if (!loginResult.error && loginResult.data.session) {
-        completeAuth();
+      const signInResult = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (signInResult.error) {
+        setStatus("Account created. Disable email confirmation in Supabase Auth if you want instant demo login.");
+        setActiveAction("");
         return;
       }
 
-      setStatus("Account created. If your project requires email confirmation, check your inbox and then sign in.");
-      setActiveAction("");
+      completeAuth();
     });
   };
 
@@ -236,7 +156,7 @@ export function AuthForm() {
           variants={delayedRise(0.04)}
           className="inline-flex rounded-full border border-neon/30 bg-neon/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-neon"
         >
-          Email OTP Authentication
+          Email & Password Authentication
         </motion.span>
         <motion.h1 variants={delayedRise(0.12)} className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
           Smart Vehicle Identity with rapid emergency outreach built in.
@@ -351,7 +271,7 @@ export function AuthForm() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Use password for Quick Login"
+              placeholder="Enter your password"
             />
           </motion.label>
 
@@ -360,63 +280,35 @@ export function AuthForm() {
             variants={fieldReveal}
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.97 }}
-            disabled={pending || !email || cooldown > 0}
-            onClick={sendOtp}
+            disabled={pending || !email || !password}
+            onClick={signIn}
             className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
           >
             <motion.span animate="rest" variants={pulseGlow}>
-              {activeAction === "otp" ? "Sending..." : cooldown > 0 ? `Send OTP (${cooldown}s)` : "Send OTP"}
+              {activeAction === "signin" ? "Signing in..." : "Sign In"}
             </motion.span>
           </motion.button>
-
-          <motion.label variants={otpReveal} className="field">
-            <span>Enter OTP</span>
-            <motion.input
-              whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-              transition={glowTransition}
-              value={otp}
-              onChange={(event) => setOtp(event.target.value)}
-              placeholder="123456"
-            />
-          </motion.label>
 
           <motion.button
             type="button"
             variants={fieldReveal}
             whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.98 }}
-            disabled={pending || otp.length < 6}
-            onClick={verifyOtp}
+            disabled={pending || !email || !password}
+            onClick={createAccount}
             className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {activeAction === "verify" ? "Verifying..." : "Verify & continue"}
+            {activeAction === "create-account" ? "Creating..." : "Create Account"}
           </motion.button>
 
-          <motion.div variants={staggerContainer} className="grid gap-3 sm:grid-cols-2">
-            <motion.button
-              type="button"
-              variants={fieldReveal}
-              whileHover={{ scale: 1.03, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={pending || !email || !password}
-              onClick={quickLogin}
-              className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {activeAction === "quick-login" ? "Working..." : "Quick Login (No OTP)"}
-            </motion.button>
-
-            <motion.button
-              type="button"
-              variants={fieldReveal}
-              whileHover={{ scale: 1.03, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={pending || !email || !password}
-              onClick={createAccount}
-              className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {activeAction === "create-account" ? "Creating..." : "Create Account"}
-            </motion.button>
-          </motion.div>
+          <motion.label variants={fieldReveal} className="field opacity-60">
+            <span>OTP</span>
+            <motion.input
+              disabled
+              value=""
+              placeholder="OTP login removed for this build"
+            />
+          </motion.label>
 
           <AnimatePresence mode="wait">
             {status && (
