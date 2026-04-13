@@ -123,7 +123,7 @@ export function AuthForm() {
         }
 
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/auth/update-password`
         });
 
         if (error) {
