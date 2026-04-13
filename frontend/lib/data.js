@@ -1,17 +1,33 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatDayLabel } from "@/lib/utils";
 
-function aggregateDaily(items, key) {
+function aggregateDaily(items = [], key = "created_at") {
   const map = new Map();
+  const safeItems = Array.isArray(items) ? items : [];
 
-  items.forEach((item) => {
-    const day = new Date(item[key]).toISOString().slice(0, 10);
-    map.set(day, (map.get(day) || 0) + 1);
+  // Initialize last 7 days with 0 to ensure chart stability
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const day = d.toISOString().slice(0, 10);
+    map.set(day, 0);
+  }
+
+  safeItems.forEach((item) => {
+    if (item && item[key]) {
+      try {
+        const day = new Date(item[key]).toISOString().slice(0, 10);
+        if (map.has(day)) {
+          map.set(day, map.get(day) + 1);
+        }
+      } catch (e) {
+        console.error("Invalid date in aggregator:", item[key]);
+      }
+    }
   });
 
   return Array.from(map.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-7)
     .map(([day, total]) => ({
       day,
       label: formatDayLabel(day),
