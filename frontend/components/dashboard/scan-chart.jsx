@@ -33,7 +33,20 @@ export function ScanChart({ data }) {
     setIsMounted(true);
   }, []);
 
-  if (!isMounted) return <div className="h-[320px] w-full bg-slate-900/50 animate-pulse rounded-3xl" />;
+  // Standard Failsafe Loading Guard
+  if (!isMounted || !data || data.length === 0) {
+    return (
+      <div className="glass-panel rounded-3xl p-6 min-h-[300px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="size-8 rounded-full border-2 border-neon border-t-transparent animate-spin mx-auto" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-widest text-slate-500">Waitng for Chart Data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Data Safety Fallback
+  const safeData = data || [];
 
   return (
     <motion.div
@@ -52,9 +65,9 @@ export function ScanChart({ data }) {
         </div>
       </div>
 
-      <div className="mt-8 h-[240px] w-full">
+      <div className="mt-8 w-full h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
+          <AreaChart data={safeData}>
             <defs>
               <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
