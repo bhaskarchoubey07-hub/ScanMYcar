@@ -18,6 +18,16 @@ const ScanHeatmap = dynamic(
 export function DashboardHub({ initialVehicles = [], initialDailyScans = [], initialScans = [] }) {
   const { stats, activity, liveScans } = useLiveDashboard();
 
+  // Step 4: Strict Loading Guard (requested by user)
+  if (!stats || typeof stats !== "object") {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center p-10 text-center">
+        <div className="size-10 rounded-full border-2 border-neon border-t-transparent animate-spin mb-6" />
+        <p className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 animate-pulse">Initializing Dashboard Core...</p>
+      </div>
+    );
+  }
+
   // Safety fallbacks
   const statsToRender = stats || { totalVehicles: 0, totalScans: 0, activeAlerts: 0, qrDownloads: 0 };
   const activityToRender = activity || [];
