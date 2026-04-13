@@ -1,67 +1,82 @@
-const {
-  createVehicle,
-  updateVehicleQr,
-  listVehiclesByUserId,
-  getVehicleStatsForUser
-} = require('../models/vehicleModel');
-const { generateVehicleQr } = require('../utils/qrGenerator');
+const supabase = require("../supabaseClient");
 
-const addVehicle = async (req, res, next) => {
+// GET /api/vehicles
+const getAllVehicles = async (req, res) => {
   try {
-    const {
-      vehicle_number: vehicleNumber,
-      vehicle_type: vehicleType,
-      owner_name: ownerName,
-      contact_phone: contactPhone,
-      emergency_contact: emergencyContact
-    } = req.body;
+    const { data, error } = await supabase
+      .from("vehicles")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-    const vehicleId = await createVehicle({
-      userId: req.user.id,
-      vehicleNumber,
-      vehicleType,
-      ownerName,
-      contactPhone,
-      emergencyContact,
-      qrCodeUrl: ''
-    });
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
 
-    const qr = await generateVehicleQr(vehicleId, process.env.PUBLIC_BASE_URL);
-    await updateVehicleQr(vehicleId, qr.publicUrl);
-
-    return res.status(201).json({
-      message: 'Vehicle added successfully.',
-      vehicle: {
-        id: vehicleId,
-        vehicle_number: vehicleNumber,
-        vehicle_type: vehicleType,
-        owner_name: ownerName,
-        contact_phone: contactPhone,
-        emergency_contact: emergencyContact,
-        qr_code_url: qr.publicUrl,
-        qr_target_url: qr.vehicleLink
-      }
-    });
+    return res.status(200).json(data);
   } catch (error) {
-    return next(error);
+    console.error("Error in getAllVehicles:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
-const myVehicles = async (req, res, next) => {
-  try {
-    const vehicles = await listVehiclesByUserId(req.user.id);
-    const stats = await getVehicleStatsForUser(req.user.id);
+// GET /api/vehicles/:id
+const getVehicleById = async (req, res) => {
+  const { id } = req.params;
 
-    return res.json({
-      vehicles,
-      stats
-    });
+  try {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: "Vehicle not found" });
+    }
+
+    return res.status(200).json(data);
   } catch (error) {
-    return next(error);
+    console.error("Error in getVehicleById:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// POST /api/vehicles
+const createVehicle = async (req, res) => {
+  const { vehicle_number, owner_name, owner_phone, emergency_contact, medical_info } = req.body;
+
+  // Validation
+  if (!vehicle_number || !owner_name || !owner_phone || !emergency_contact) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .insert([
+        {
+          vehicle_number,
+          owner_name,
+          owner_phone,
+          emergency_contact,
+          medical_info: medical_info || null
+        }
+      ])
+      .select();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(201).json(data[0]);
+  } catch (error) {
+    console.error("Error in createVehicle:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 module.exports = {
-  addVehicle,
-  myVehicles
+  getAllVehicles,
+  getVehicleById,
+  createVehicle
 };
