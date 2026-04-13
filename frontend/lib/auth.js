@@ -34,16 +34,27 @@ export async function getCurrentSession() {
   // Ensure profile exists in our custom users table for features
   await ensureUserProfile(user);
 
-  const { data: profile } = await supabase.from("users").select("*").eq("id", user.id).single();
-  
-  // Strictly sanitize the user object for Server Component serialization
-  const safeUser = {
-    id: user.id,
-    email: user.email,
-    user_metadata: user.user_metadata || {}
-  };
+  try {
+    const { data: profileResult, error: profileError } = await supabase.from("users").select("*").eq("id", user.id).single();
+    
+    if (profileError) {
+      console.error("Profile fetch error in session:", profileError);
+    }
+    
+    const profile = profileResult || null;
 
-  return JSON.parse(JSON.stringify({ user: safeUser, profile }));
+    // Strictly sanitize the user object for Server Component serialization
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      user_metadata: user.user_metadata || {}
+    };
+
+    return JSON.parse(JSON.stringify({ user: safeUser, profile }));
+  } catch (err) {
+    console.error("Exception in getCurrentSession:", err);
+    return { user: null, profile: null };
+  }
 }
 
 export async function requireUser() {

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { PageReveal } from "@/components/ui/motion-effects";
-import { ScanChart } from "@/components/dashboard/scan-chart";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { VehicleList } from "@/components/vehicles/vehicle-list";
 import { SecurityMonitor } from "@/components/dashboard/security-monitor";
@@ -13,6 +12,11 @@ import { formatDate } from "@/lib/utils";
 const ScanHeatmap = dynamic(
   () => import("@/components/dashboard/scan-heatmap"),
   { ssr: false, loading: () => <div className="h-[400px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
+);
+
+const ScanChart = dynamic(
+  () => import("@/components/dashboard/scan-chart").then((mod) => mod.ScanChart),
+  { ssr: false, loading: () => <div className="h-[300px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
 );
 
 export function DashboardHub({ initialVehicles = [], initialDailyScans = [], initialScans = [] }) {

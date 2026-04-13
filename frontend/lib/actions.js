@@ -47,7 +47,8 @@ export async function upsertVehicleAction(formData, scope = "owner") {
   }
 
   if (recordId) {
-    const { data: existing } = await supabase.from("vehicles").select("*").eq("id", recordId).single();
+    const { data: existing, error: fetchError } = await supabase.from("vehicles").select("*").eq("id", recordId).single();
+    if (fetchError) console.error("Action fetch vehicle error:", fetchError);
 
     if (!existing) {
       return { success: false, message: "Vehicle record not found." };
@@ -127,7 +128,8 @@ export async function upsertVehicleAction(formData, scope = "owner") {
 export async function deleteVehicleAction(vehicleId) {
   const { user, profile } = await requireUser();
   const supabase = await createClient();
-  const { data: existing } = await supabase.from("vehicles").select("*").eq("id", vehicleId).single();
+  const { data: existing, error: fetchError } = await supabase.from("vehicles").select("*").eq("id", vehicleId).single();
+  if (fetchError) console.error("Action delete fetch error:", fetchError);
 
   if (!existing) {
     return { success: false, message: "Vehicle not found." };
