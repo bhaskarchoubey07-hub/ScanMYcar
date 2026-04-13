@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
-import { AnimatePresence, motion } from "framer-motion";
-import { Activity, Bell, MapPin } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { Zap, MapPin } from "lucide-react";
 
-export function LiveDashboard({ 
+const LiveDashboardContext = createContext(null);
+
+export function useLiveDashboard() {
+  const context = useContext(LiveDashboardContext);
+  if (!context) {
+    throw new Error("useLiveDashboard must be used within a LiveDashboardProvider");
+  }
+  return context;
+}
+
+export function LiveDashboardProvider({ 
   initialStats, 
   initialActivity, 
   userId, 
@@ -19,7 +28,6 @@ export function LiveDashboard({
   const [newScanToast, setNewScanToast] = useState(null);
 
   useEffect(() => {
-    // 1. Subscribe to Realtime Scans
     const scanChannel = supabase
       .channel("live-scans")
       .on(
@@ -35,16 +43,13 @@ export function LiveDashboard({
             .single();
 
           if (vehicle && vehicle.user_id === userId) {
-            // Update Stats
             setStats(prev => ({
               ...prev,
-              totalScans: prev.totalScans + 1
+              totalScans: (prev.totalScans || 0) + 1
             }));
 
-            // Update Live Scans for Heatmap
             setLiveScans(prev => [newScan, ...prev].slice(0, 50));
 
-            // Update Activity Feed
             const entry = {
               id: newScan.id,
               type: "scan",
@@ -56,7 +61,6 @@ export function LiveDashboard({
 
             setActivity(prev => [entry, ...prev].slice(0, 10));
 
-            // Trigger Premium Toast
             setNewScanToast({
               title: "Live Scan!",
               detail: `QR Scanned for ${vehicle.vehicle_number}`,
@@ -69,7 +73,6 @@ export function LiveDashboard({
       )
       .subscribe();
 
-    // 2. Subscribe to Realtime Alerts
     const alertChannel = supabase
       .channel("live-alerts")
       .on(
@@ -87,7 +90,7 @@ export function LiveDashboard({
           if (vehicle && vehicle.user_id === userId) {
             setStats(prev => ({
               ...prev,
-              activeAlerts: prev.activeAlerts + 1
+              activeAlerts: (prev.activeAlerts || 0) + 1
             }));
 
             const entry = {
@@ -112,7 +115,7 @@ export function LiveDashboard({
   }, [supabase, userId]);
 
   return (
-    <>
+    <LiveDashboardContext.Provider value={{ stats, activity, liveScans }}>
       {/* Premium Live Notifications */}
       <AnimatePresence>
         {newScanToast && (
@@ -142,8 +145,7 @@ export function LiveDashboard({
         )}
       </AnimatePresence>
 
-      {/* Inject Live Data into Children */}
-      {children({ stats, activity, liveScans })}
-    </>
+      {children}
+    </LiveDashboardContext.Provider>
   );
 }
