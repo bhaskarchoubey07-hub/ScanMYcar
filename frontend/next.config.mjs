@@ -7,7 +7,8 @@ const nextConfig = {
         hostname: "**.supabase.co"
       }
     ]
-  }
+  },
+  transpilePackages: ["react-leaflet", "leaflet"]
 };
 
 export default nextConfig;
