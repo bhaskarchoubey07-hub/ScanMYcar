@@ -48,10 +48,13 @@ export function LiveDashboardProvider({
               .single();
 
             if (vehicle && vehicle.user_id === userId) {
-              setStats(prev => ({
-                ...prev,
-                totalScans: (prev?.totalScans || 0) + 1
-              }));
+              setStats(prev => {
+                const current = prev || { totalVehicles: 0, totalScans: 0, activeAlerts: 0, qrDownloads: 0 };
+                return {
+                  ...current,
+                  totalScans: (current.totalScans || 0) + 1
+                };
+              });
 
               setLiveScans(prev => [newScan, ...prev].slice(0, 50));
 
@@ -96,10 +99,13 @@ export function LiveDashboardProvider({
               .single();
 
             if (vehicle && vehicle.user_id === userId) {
-              setStats(prev => ({
-                ...prev,
-                activeAlerts: (prev?.activeAlerts || 0) + 1
-              }));
+              setStats(prev => {
+                const current = prev || { totalVehicles: 0, totalScans: 0, activeAlerts: 0, qrDownloads: 0 };
+                return {
+                  ...current,
+                  activeAlerts: (current.activeAlerts || 0) + 1
+                };
+              });
 
               const entry = {
                 id: newAlert.id,

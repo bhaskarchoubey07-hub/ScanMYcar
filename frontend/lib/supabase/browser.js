@@ -5,11 +5,18 @@ import { createBrowserClient } from "@supabase/ssr";
 let browserClient;
 
 export function createClient() {
-  if (!browserClient) {
-    browserClient = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    console.error(
+      "CRITICAL: Supabase environment variables are missing. " +
+      "Check your .env.local or Vercel environment settings."
     );
+  }
+
+  if (!browserClient) {
+    browserClient = createBrowserClient(url, key);
   }
 
   return browserClient;

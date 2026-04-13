@@ -15,8 +15,13 @@ const ScanHeatmap = dynamic(
   { ssr: false, loading: () => <div className="h-[400px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
 );
 
-export function DashboardHub({ initialVehicles, initialDailyScans, initialScans }) {
+export function DashboardHub({ initialVehicles = [], initialDailyScans = [], initialScans = [] }) {
   const { stats, activity, liveScans } = useLiveDashboard();
+
+  // Safety fallbacks
+  const statsToRender = stats || { totalVehicles: 0, totalScans: 0, activeAlerts: 0, qrDownloads: 0 };
+  const activityToRender = activity || [];
+  const scansToRender = liveScans?.length > 0 ? liveScans : initialScans || [];
 
   return (
     <PageReveal className="space-y-8">
@@ -31,15 +36,15 @@ export function DashboardHub({ initialVehicles, initialDailyScans, initialScans 
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total Fleet" value={stats?.totalVehicles || 0} helper="Active vehicle IDs" />
-        <StatCard label="Global Interactions" value={stats?.totalScans || 0} helper="Total decoded QR scans" />
-        <StatCard label="Critical Alerts" value={stats?.activeAlerts || 0} accent="glow" helper="Open SOS escalations" />
-        <StatCard label="QR Inventory" value={stats?.qrDownloads || 0} helper="Assets ready for print" />
+        <StatCard label="Total Fleet" value={statsToRender.totalVehicles} helper="Active vehicle IDs" />
+        <StatCard label="Global Interactions" value={statsToRender.totalScans} helper="Total decoded QR scans" />
+        <StatCard label="Critical Alerts" value={statsToRender.activeAlerts} accent="glow" helper="Open SOS escalations" />
+        <StatCard label="QR Inventory" value={statsToRender.qrDownloads} helper="Assets ready for print" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-        <ScanHeatmap scans={liveScans?.length ? liveScans : initialScans} />
-        <SecurityMonitor scans={liveScans?.length ? liveScans : initialScans} />
+        <ScanHeatmap scans={scansToRender} />
+        <SecurityMonitor scans={scansToRender} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
@@ -55,8 +60,8 @@ export function DashboardHub({ initialVehicles, initialDailyScans, initialScans 
           
           <h2 className="text-lg font-semibold text-white">Security Event Log</h2>
           <div className="mt-8 space-y-4">
-            {activity.length ? (
-              activity.map((item) => (
+            {activityToRender.length > 0 ? (
+              activityToRender.map((item) => (
                 <div 
                   key={`${item.type}-${item.id}`} 
                   className={`relative rounded-3xl border p-4 transition-all ${
@@ -74,7 +79,7 @@ export function DashboardHub({ initialVehicles, initialDailyScans, initialScans 
                     <p className={`font-semibold ${item.isLive ? "text-neon" : "text-white"}`}>{item.title}</p>
                     <span className="text-[10px] uppercase font-bold tracking-[0.3em] text-slate-500">{item.type}</span>
                   </div>
-                  <p className="mt-2 text-sm text-slate-400">{item.description}</p>
+                  <p className="mt-2 text-sm text-slate-400">{item.description || "No intel available"}</p>
                   <p className="mt-2 text-[10px] font-medium text-slate-500 uppercase tracking-widest">{formatDate(item.created_at)}</p>
                 </div>
               ))
@@ -90,7 +95,7 @@ export function DashboardHub({ initialVehicles, initialDailyScans, initialScans 
           <h2 className="text-2xl font-semibold text-white tracking-tight">Asset Inventory</h2>
           <p className="text-sm text-slate-500">Manage security settings and emergency outreach profiles.</p>
         </div>
-        <VehicleList vehicles={initialVehicles.slice(0, 4)} />
+        <VehicleList vehicles={initialVehicles?.slice(0, 4) || []} />
       </section>
     </PageReveal>
   );
