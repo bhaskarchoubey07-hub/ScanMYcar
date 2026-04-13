@@ -26,12 +26,20 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export function ScanChart({ data }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) return <div className="h-[320px] w-full bg-slate-900/50 animate-pulse rounded-3xl" />;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true }}
-      className="glass-panel overflow-hidden rounded-3xl p-6"
+      className="glass-panel overflow-hidden rounded-3xl p-6 min-w-0"
     >
       <div className="flex items-center justify-between">
         <div>

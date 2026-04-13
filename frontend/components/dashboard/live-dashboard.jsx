@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, MapPin } from "lucide-react";
@@ -26,9 +26,9 @@ export function LiveDashboardProvider({
   userId, 
   children 
 }) {
-  const supabase = createClient();
-  const [stats, setStats] = useState(initialStats);
-  const [activity, setActivity] = useState(initialActivity);
+  const supabase = useMemo(() => createClient(), []);
+  const [stats, setStats] = useState(initialStats || { totalVehicles: 0, totalScans: 0, activeAlerts: 0, qrDownloads: 0 });
+  const [activity, setActivity] = useState(initialActivity || []);
   const [liveScans, setLiveScans] = useState([]);
   const [newScanToast, setNewScanToast] = useState(null);
 
@@ -40,39 +40,42 @@ export function LiveDashboardProvider({
         { event: "INSERT", schema: "public", table: "scans" },
         async (payload) => {
           const newScan = payload.new;
-          
-          const { data: vehicle } = await supabase
-            .from("vehicles")
-            .select("user_id, vehicle_number")
-            .eq("id", newScan.vehicle_id)
-            .single();
+          try {
+            const { data: vehicle } = await supabase
+              .from("vehicles")
+              .select("user_id, vehicle_number")
+              .eq("id", newScan.vehicle_id)
+              .single();
 
-          if (vehicle && vehicle.user_id === userId) {
-            setStats(prev => ({
-              ...prev,
-              totalScans: (prev.totalScans || 0) + 1
-            }));
+            if (vehicle && vehicle.user_id === userId) {
+              setStats(prev => ({
+                ...prev,
+                totalScans: (prev?.totalScans || 0) + 1
+              }));
 
-            setLiveScans(prev => [newScan, ...prev].slice(0, 50));
+              setLiveScans(prev => [newScan, ...prev].slice(0, 50));
 
-            const entry = {
-              id: newScan.id,
-              type: "scan",
-              created_at: newScan.created_at,
-              title: "New Scan Recorded",
-              description: `${newScan.city || "Unknown location"} • Vehicle: ${vehicle.vehicle_number}`,
-              isLive: true
-            };
+              const entry = {
+                id: newScan.id,
+                type: "scan",
+                created_at: newScan.created_at,
+                title: "New Scan Recorded",
+                description: `${newScan.city || "Unknown location"} • Vehicle: ${vehicle.vehicle_number}`,
+                isLive: true
+              };
 
-            setActivity(prev => [entry, ...prev].slice(0, 10));
+              setActivity(prev => [entry, ...prev].slice(0, 10));
 
-            setNewScanToast({
-              title: "Live Scan!",
-              detail: `QR Scanned for ${vehicle.vehicle_number}`,
-              location: newScan.city || "Unknown location"
-            });
+              setNewScanToast({
+                title: "Live Scan!",
+                detail: `QR Scanned for ${vehicle.vehicle_number}`,
+                location: newScan.city || "Unknown location"
+              });
 
-            setTimeout(() => setNewScanToast(null), 5000);
+              setTimeout(() => setNewScanToast(null), 5000);
+            }
+          } catch (err) {
+            console.error("Telemetry error:", err);
           }
         }
       )
@@ -85,29 +88,32 @@ export function LiveDashboardProvider({
         { event: "INSERT", schema: "public", table: "alerts" },
         async (payload) => {
           const newAlert = payload.new;
+          try {
+            const { data: vehicle } = await supabase
+              .from("vehicles")
+              .select("user_id, vehicle_number")
+              .eq("id", newAlert.vehicle_id)
+              .single();
 
-          const { data: vehicle } = await supabase
-            .from("vehicles")
-            .select("user_id, vehicle_number")
-            .eq("id", newAlert.vehicle_id)
-            .single();
+            if (vehicle && vehicle.user_id === userId) {
+              setStats(prev => ({
+                ...prev,
+                activeAlerts: (prev?.activeAlerts || 0) + 1
+              }));
 
-          if (vehicle && vehicle.user_id === userId) {
-            setStats(prev => ({
-              ...prev,
-              activeAlerts: (prev.activeAlerts || 0) + 1
-            }));
+              const entry = {
+                id: newAlert.id,
+                type: "alert",
+                created_at: newAlert.created_at,
+                title: "EMERGENCY ALERT",
+                description: `SOS Triggered for ${vehicle.vehicle_number}`,
+                isLive: true
+              };
 
-            const entry = {
-              id: newAlert.id,
-              type: "alert",
-              created_at: newAlert.created_at,
-              title: "EMERGENCY ALERT",
-              description: `SOS Triggered for ${vehicle.vehicle_number}`,
-              isLive: true
-            };
-
-            setActivity(prev => [entry, ...prev].slice(0, 10));
+              setActivity(prev => [entry, ...prev].slice(0, 10));
+            }
+          } catch (err) {
+            console.error("Alert telemetry error:", err);
           }
         }
       )

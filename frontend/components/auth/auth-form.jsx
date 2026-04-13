@@ -52,6 +52,8 @@ export function AuthForm() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [showOtpStep, setShowOtpStep] = useState(false);
   const [status, setStatus] = useState("");
   const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
@@ -99,14 +101,23 @@ export function AuthForm() {
     });
   };
 
+  const triggerOtp = async (phoneNumber) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: phoneNumber
+    });
+    if (error) {
+      throw error;
+    }
+  };
+
   const createAccount = () => {
     startTransition(async () => {
       setActiveAction("create-account");
       setStatus("");
 
       try {
-        if (!email || !password) {
-          setStatus("Email and password are required.");
+        if (!email || !password || !phone) {
+          setStatus("Email, password, and mobile number are required.");
           return;
         }
 
@@ -115,7 +126,8 @@ export function AuthForm() {
           return;
         }
 
-        const { data, error } = await supabase.auth.signUp({
+        // 1. Create the account (Email/Password)
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -126,13 +138,50 @@ export function AuthForm() {
           }
         });
 
-        if (error) {
-          setStatus(formatAuthMessage(error.message));
+        if (signUpError) {
+          setStatus(formatAuthMessage(signUpError.message));
           return;
         }
 
-        // Instant redirect since Email Confirmation is OFF
-        setStatus("Identity secure. Redirecting...");
+        // 2. Trigger Phone OTP
+        try {
+          await triggerOtp(phone);
+          setShowOtpStep(true);
+          setStatus("Verification code sent to your mobile.");
+        } catch (otpError) {
+          console.error("OTP send failed:", otpError);
+          // If OTP fails but user is created, we might need a retry button
+          setStatus("Account created! But we couldn't send the SMS. Please try signing in.");
+        }
+      } finally {
+        setActiveAction("");
+      }
+    });
+  };
+
+  const verifyOtp = () => {
+    startTransition(async () => {
+      setActiveAction("verify-otp");
+      setStatus("");
+
+      try {
+        if (!otp || otp.length < 6) {
+          setStatus("Please enter the 6-digit code.");
+          return;
+        }
+
+        const { error } = await supabase.auth.verifyOtp({
+          phone,
+          token: otp,
+          type: "sms"
+        });
+
+        if (error) {
+          setStatus("Invalid verification code. Please try again.");
+          return;
+        }
+
+        setStatus("Identity verified. Accessing vault...");
         completeAuth();
       } finally {
         setActiveAction("");
@@ -243,54 +292,113 @@ export function AuthForm() {
             )}
           </AnimatePresence>
 
-          <motion.label variants={fieldReveal} className="field">
-            <span>Email</span>
-            <motion.input
-              whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-              transition={glowTransition}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="owner@example.com"
-            />
-          </motion.label>
+          <AnimatePresence mode="popLayout" initial={false}>
+            {!showOtpStep ? (
+              <motion.div
+                key="login-fields"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                <motion.label variants={fieldReveal} className="field">
+                  <span>Email</span>
+                  <motion.input
+                    whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+                    transition={glowTransition}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="owner@example.com"
+                  />
+                </motion.label>
 
-          <motion.label variants={fieldReveal} className="field">
-            <span>Password</span>
-            <motion.input
-              whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-              transition={glowTransition}
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter your password"
-            />
-          </motion.label>
+                <motion.label variants={fieldReveal} className="field">
+                  <span>Password</span>
+                  <motion.input
+                    whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+                    transition={glowTransition}
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                  />
+                </motion.label>
 
-          <motion.button
-            type="button"
-            variants={fieldReveal}
-            whileHover={{ scale: 1.04, y: -2 }}
-            whileTap={{ scale: 0.97 }}
-            disabled={pending || !email || !password}
-            onClick={signIn}
-            className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <motion.span animate="rest" variants={pulseGlow}>
-              {activeAction === "signin" ? "Signing in..." : "Sign In"}
-            </motion.span>
-          </motion.button>
+                {mode === "signin" ? (
+                  <motion.button
+                    type="button"
+                    variants={fieldReveal}
+                    whileHover={{ scale: 1.04, y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    disabled={pending || !email || !password}
+                    onClick={signIn}
+                    className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <motion.span animate="rest" variants={pulseGlow}>
+                      {activeAction === "signin" ? "Signing in..." : "Sign In"}
+                    </motion.span>
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="button"
+                    variants={fieldReveal}
+                    whileHover={{ scale: 1.03, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={pending || !email || !password || !phone}
+                    onClick={createAccount}
+                    className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {activeAction === "create-account" ? "Creating Account..." : "Create Account"}
+                  </motion.button>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="otp-step"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6 py-4"
+              >
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-white">Verify Identity</h3>
+                  <p className="mt-2 text-sm text-slate-400">Enter the 6-digit code sent to {phone}</p>
+                </div>
 
-          <motion.button
-            type="button"
-            variants={fieldReveal}
-            whileHover={{ scale: 1.03, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            disabled={pending || !email || !password}
-            onClick={createAccount}
-            className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {activeAction === "create-account" ? "Creating Account..." : "Create Account"}
-          </motion.button>
+                <motion.label variants={fieldReveal} className="field">
+                  <span className="text-center w-full block">Verification Code</span>
+                  <motion.input
+                    whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(16, 185, 129, 0.2)" }}
+                    transition={glowTransition}
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="000000"
+                    className="text-center text-2xl tracking-[0.5em] font-mono text-neon"
+                  />
+                </motion.label>
+
+                <motion.button
+                  type="button"
+                  variants={fieldReveal}
+                  whileHover={{ scale: 1.04, y: -2 }}
+                  whileTap={{ scale: 0.97 }}
+                  disabled={pending || otp.length < 6}
+                  onClick={verifyOtp}
+                  className="primary-button w-full bg-emerald-500 text-slate-950"
+                >
+                  {activeAction === "verify-otp" ? "Verifying..." : "Confirm Verification"}
+                </motion.button>
+
+                <button 
+                  type="button" 
+                  onClick={() => setShowOtpStep(false)}
+                  className="w-full text-center text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
+                >
+                  Back to signup
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <AnimatePresence mode="wait">
             {status && (
