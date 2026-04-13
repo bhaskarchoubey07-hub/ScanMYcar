@@ -102,12 +102,40 @@ export function AuthForm() {
   };
 
   const triggerOtp = async (phoneNumber) => {
-    const { error } = await supabase.auth.signInWithOtp({
+    // Uses updateUser to trigger SMS for identity verification rather than passwordless clone login
+    const { error } = await supabase.auth.updateUser({
       phone: phoneNumber
     });
     if (error) {
       throw error;
     }
+  };
+
+  const triggerPasswordReset = () => {
+    startTransition(async () => {
+      setActiveAction("reset-password");
+      setStatus("");
+
+      try {
+        if (!email) {
+          setStatus("Please enter your email to reset your password.");
+          return;
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/dashboard`
+        });
+
+        if (error) {
+          setStatus(formatAuthMessage(error.message));
+          return;
+        }
+
+        setStatus("Password reset link sent! Please check your email.");
+      } finally {
+        setActiveAction("");
+      }
+    });
   };
 
   const createAccount = () => {
@@ -173,7 +201,7 @@ export function AuthForm() {
         const { error } = await supabase.auth.verifyOtp({
           phone,
           token: otp,
-          type: "sms"
+          type: "phone_change"
         });
 
         if (error) {
@@ -241,8 +269,8 @@ export function AuthForm() {
             type="button"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setMode("signin")}
-            className={`flex-1 rounded-full px-4 py-2 text-sm ${mode === "signin" ? "bg-neon text-slate-950" : "text-slate-300"}`}
+            onClick={() => { setMode("signin"); setStatus(""); }}
+            className={`flex-1 rounded-full px-4 py-2 text-sm ${(mode === "signin" || mode === "reset") ? "bg-neon text-slate-950" : "text-slate-300"}`}
           >
             Sign in
           </motion.button>
@@ -250,7 +278,7 @@ export function AuthForm() {
             type="button"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setMode("signup")}
+            onClick={() => { setMode("signup"); setStatus(""); }}
             className={`flex-1 rounded-full px-4 py-2 text-sm ${mode === "signup" ? "bg-glow text-slate-950" : "text-slate-300"}`}
           >
             Create account
@@ -312,44 +340,77 @@ export function AuthForm() {
                   />
                 </motion.label>
 
-                <motion.label variants={fieldReveal} className="field">
-                  <span>Password</span>
-                  <motion.input
-                    whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-                    transition={glowTransition}
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Enter your password"
-                  />
-                </motion.label>
+                {mode !== "reset" && (
+                  <motion.label variants={fieldReveal} className="field">
+                    <span>Password</span>
+                    <motion.input
+                      whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+                      transition={glowTransition}
+                      type="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Enter your password"
+                    />
+                  </motion.label>
+                )}
 
-                {mode === "signin" ? (
-                  <motion.button
-                    type="button"
-                    variants={fieldReveal}
-                    whileHover={{ scale: 1.04, y: -2 }}
-                    whileTap={{ scale: 0.97 }}
-                    disabled={pending || !email || !password}
-                    onClick={signIn}
-                    className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <motion.span animate="rest" variants={pulseGlow}>
-                      {activeAction === "signin" ? "Signing in..." : "Sign In"}
-                    </motion.span>
-                  </motion.button>
+                {mode === "reset" ? (
+                  <motion.div variants={fieldReveal} className="space-y-3 pt-2">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.04, y: -2 }}
+                      whileTap={{ scale: 0.97 }}
+                      disabled={pending || !email}
+                      onClick={triggerPasswordReset}
+                      className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <motion.span animate="rest" variants={pulseGlow}>
+                        {activeAction === "reset-password" ? "Sending Link..." : "Send Reset Link"}
+                      </motion.span>
+                    </motion.button>
+                    <button 
+                      type="button" 
+                      onClick={() => { setMode("signin"); setStatus(""); }}
+                      className="text-xs text-slate-400 hover:text-white mt-1 text-center w-full block transition-colors"
+                    >
+                      Back to sign in
+                    </button>
+                  </motion.div>
+                ) : mode === "signin" ? (
+                  <motion.div variants={fieldReveal} className="space-y-3 pt-2">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.04, y: -2 }}
+                      whileTap={{ scale: 0.97 }}
+                      disabled={pending || !email || !password}
+                      onClick={signIn}
+                      className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <motion.span animate="rest" variants={pulseGlow}>
+                        {activeAction === "signin" ? "Signing in..." : "Sign In"}
+                      </motion.span>
+                    </motion.button>
+                    <button 
+                      type="button" 
+                      onClick={() => { setMode("reset"); setStatus(""); }}
+                      className="text-xs text-slate-400 hover:text-white mt-1 text-center w-full block transition-colors"
+                    >
+                      Forgot your password?
+                    </button>
+                  </motion.div>
                 ) : (
-                  <motion.button
-                    type="button"
-                    variants={fieldReveal}
-                    whileHover={{ scale: 1.03, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    disabled={pending || !email || !password || !phone}
-                    onClick={createAccount}
-                    className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {activeAction === "create-account" ? "Creating Account..." : "Create Account"}
-                  </motion.button>
+                  <motion.div variants={fieldReveal} className="pt-2">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={pending || !email || !password || !phone}
+                      onClick={createAccount}
+                      className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {activeAction === "create-account" ? "Creating Account..." : "Create Account"}
+                    </motion.button>
+                  </motion.div>
                 )}
               </motion.div>
             ) : (
