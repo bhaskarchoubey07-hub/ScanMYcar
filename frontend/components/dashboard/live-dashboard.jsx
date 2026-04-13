@@ -84,7 +84,7 @@ export function LiveDashboardProvider({
           }
         }
       )
-      // .subscribe(); // STEP 6: Temporarily disabled to isolate crash loop
+      .subscribe();
 
     const alertChannel = supabase
       .channel("live-alerts")
@@ -125,7 +125,7 @@ export function LiveDashboardProvider({
           }
         }
       )
-      // .subscribe(); // STEP 6: Temporarily disabled to isolate crash loop
+      .subscribe();
 
     return () => {
       supabase.removeAllChannels();

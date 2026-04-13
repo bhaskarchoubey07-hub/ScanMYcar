@@ -32,7 +32,10 @@ export default function GlobalError({ error, reset }) {
         </h1>
         
         <p className="mt-4 text-sm leading-relaxed text-slate-400">
-          A client-side exception has occurred in the neural network. We've logged the incident and isolated the process.
+          A client-side exception has occurred in the neural network:
+          <span className="mt-2 block font-mono text-[10px] text-red-400/80">
+            {error?.message || error?.name || "Unknown telemetry anomaly"}
+          </span>
         </p>
 
         <div className="mt-8 space-y-3">

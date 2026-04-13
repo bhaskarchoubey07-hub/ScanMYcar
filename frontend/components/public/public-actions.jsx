@@ -9,20 +9,32 @@ export function PublicActions({ vehicle }) {
   const [pending, startTransition] = useTransition();
 
   const logScan = useCallback(async (coords) => {
-    const response = await fetch("/api/scans", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        vehicleId: vehicle.id,
-        latitude: coords?.latitude || null,
-        longitude: coords?.longitude || null
-      })
-    });
+    const sessionKey = `scan_logged_${vehicle.id}`;
+    if (typeof window !== "undefined" && window.sessionStorage.getItem(sessionKey)) {
+      return;
+    }
 
-    if (response.ok) {
-      setStatus(coords ? "Scan logged with location." : "Scan logged.");
+    try {
+      const response = await fetch("/api/scans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          vehicleId: vehicle.id,
+          latitude: coords?.latitude || null,
+          longitude: coords?.longitude || null
+        })
+      });
+
+      if (response.ok) {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(sessionKey, "true");
+        }
+        setStatus(coords ? "Location-aware scan logged." : "Anonymous scan recorded.");
+      }
+    } catch (err) {
+      console.error("Auto-scan reporting failed:", err);
     }
   }, [vehicle.id]);
 
@@ -49,21 +61,29 @@ export function PublicActions({ vehicle }) {
 
   const sendAlert = () => {
     startTransition(async () => {
-      const response = await fetch("/api/alerts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          vehicleId: vehicle.id,
-          latitude: location?.latitude || null,
-          longitude: location?.longitude || null,
-          alertType: "sos",
-          message: "SOS alert triggered from public vehicle page."
-        })
-      });
+      try {
+        const response = await fetch("/api/alerts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            vehicleId: vehicle.id,
+            latitude: location?.latitude || null,
+            longitude: location?.longitude || null,
+            alertType: "sos",
+            message: "SOS alert triggered from public vehicle page."
+          })
+        });
 
-      setStatus(response.ok ? "Emergency alert sent." : "Unable to send alert right now.");
+        if (response.ok) {
+          setStatus("Emergency SOS sent to owner!");
+        } else {
+          setStatus("Alert service connection failed.");
+        }
+      } catch (err) {
+        setStatus("Network error: SOS signal not sent.");
+      }
     });
   };
 
