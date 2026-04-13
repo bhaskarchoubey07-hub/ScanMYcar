@@ -33,8 +33,10 @@ export function LiveDashboardProvider({
   const [newScanToast, setNewScanToast] = useState(null);
 
   useEffect(() => {
+    if (!supabase || !userId) return;
+
     const scanChannel = supabase
-      .channel("live-scans")
+      .channel(`scans-${userId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "scans" },
@@ -126,8 +128,7 @@ export function LiveDashboardProvider({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(scanChannel);
-      supabase.removeChannel(alertChannel);
+      supabase.removeAllChannels();
     };
   }, [supabase, userId]);
 
@@ -137,6 +138,7 @@ export function LiveDashboardProvider({
       <AnimatePresence>
         {newScanToast && (
           <motion.div
+            key="telemetry-toast-guard"
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}

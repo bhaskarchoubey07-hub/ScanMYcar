@@ -84,6 +84,7 @@ export function SecurityMonitor({ scans = [] }) {
             ))
           ) : (
             <motion.div
+              key="safe-state-guard"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center py-10 text-center"
