@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState, useTransition } from "react";
+import { useEffect, useCallback, useState, useTransition } from "react";
 import { formatPhoneHref, formatWhatsAppHref } from "@/lib/utils";
 
 export function PublicActions({ vehicle }) {
@@ -8,7 +8,7 @@ export function PublicActions({ vehicle }) {
   const [status, setStatus] = useState("Public scan page opened.");
   const [pending, startTransition] = useTransition();
 
-  const logScan = useEffectEvent(async (coords) => {
+  const logScan = useCallback(async (coords) => {
     const response = await fetch("/api/scans", {
       method: "POST",
       headers: {
@@ -24,7 +24,7 @@ export function PublicActions({ vehicle }) {
     if (response.ok) {
       setStatus(coords ? "Scan logged with location." : "Scan logged.");
     }
-  });
+  }, [vehicle.id]);
 
   useEffect(() => {
     if (!navigator.geolocation) {

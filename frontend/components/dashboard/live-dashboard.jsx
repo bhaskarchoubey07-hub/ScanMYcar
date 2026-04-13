@@ -10,7 +10,12 @@ const LiveDashboardContext = createContext(null);
 export function useLiveDashboard() {
   const context = useContext(LiveDashboardContext);
   if (!context) {
-    throw new Error("useLiveDashboard must be used within a LiveDashboardProvider");
+    // Return safe defaults during pre-rendering/build
+    return {
+      stats: { totalVehicles: 0, totalScans: 0, activeAlerts: 0, qrDownloads: 0 },
+      activity: [],
+      liveScans: []
+    };
   }
   return context;
 }

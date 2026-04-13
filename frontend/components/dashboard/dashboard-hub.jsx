@@ -31,15 +31,15 @@ export function DashboardHub({ initialVehicles, initialDailyScans, initialScans 
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total Fleet" value={stats.totalVehicles} helper="Active vehicle IDs" />
-        <StatCard label="Global Interactions" value={stats.totalScans} helper="Total decoded QR scans" />
-        <StatCard label="Critical Alerts" value={stats.activeAlerts} accent="glow" helper="Open SOS escalations" />
-        <StatCard label="QR Inventory" value={stats.qrDownloads} helper="Assets ready for print" />
+        <StatCard label="Total Fleet" value={stats?.totalVehicles || 0} helper="Active vehicle IDs" />
+        <StatCard label="Global Interactions" value={stats?.totalScans || 0} helper="Total decoded QR scans" />
+        <StatCard label="Critical Alerts" value={stats?.activeAlerts || 0} accent="glow" helper="Open SOS escalations" />
+        <StatCard label="QR Inventory" value={stats?.qrDownloads || 0} helper="Assets ready for print" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-        <ScanHeatmap scans={liveScans.length ? liveScans : initialScans} />
-        <SecurityMonitor scans={liveScans.length ? liveScans : initialScans} />
+        <ScanHeatmap scans={liveScans?.length ? liveScans : initialScans} />
+        <SecurityMonitor scans={liveScans?.length ? liveScans : initialScans} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
