@@ -35,6 +35,11 @@ function aggregateDaily(items = [], key = "created_at") {
     }));
 }
 
+// Safety helper to ensure data is strictly serializable for Next.js Server-to-Client boundary
+function serialize(data) {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export async function getUserDashboard(userId) {
   const supabase = await createClient();
 
@@ -82,7 +87,7 @@ export async function getUserDashboard(userId) {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 10);
 
-  return {
+  return serialize({
     vehicles: vehicleRows,
     scans,
     alerts,
@@ -94,7 +99,7 @@ export async function getUserDashboard(userId) {
     },
     dailyScans: aggregateDaily(scans, "created_at"),
     activity
-  };
+  });
 }
 
 export async function getAdminDashboard() {
@@ -124,7 +129,7 @@ export async function getAdminDashboard() {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 12);
 
-  return {
+  return serialize({
     users,
     vehicles,
     scans,
@@ -137,7 +142,7 @@ export async function getAdminDashboard() {
       totalScans: scans.length,
       emergencyAlerts: alerts.length
     }
-  };
+  });
 }
 
 export async function getVehicleForEditor(id) {

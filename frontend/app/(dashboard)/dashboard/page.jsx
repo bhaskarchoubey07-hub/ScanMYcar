@@ -7,16 +7,19 @@ export default async function DashboardPage() {
   const { user } = await requireUser();
   const dashboard = await getUserDashboard(user.id);
 
+  // Destructure for absolute serialization safety
+  const { stats, activity, scans, dailyScans, vehicles } = dashboard;
+
   return (
     <LiveDashboardProvider
       userId={user.id}
-      initialStats={dashboard.stats}
-      initialActivity={dashboard.activity}
+      initialStats={stats}
+      initialActivity={activity}
     >
       <DashboardHub 
-        initialVehicles={dashboard.vehicles}
-        initialDailyScans={dashboard.dailyScans}
-        initialScans={dashboard.scans}
+        initialVehicles={vehicles}
+        initialDailyScans={dailyScans}
+        initialScans={scans}
       />
     </LiveDashboardProvider>
   );

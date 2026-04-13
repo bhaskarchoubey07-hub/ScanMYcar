@@ -35,7 +35,15 @@ export async function getCurrentSession() {
   await ensureUserProfile(user);
 
   const { data: profile } = await supabase.from("users").select("*").eq("id", user.id).single();
-  return { user, profile };
+  
+  // Strictly sanitize the user object for Server Component serialization
+  const safeUser = {
+    id: user.id,
+    email: user.email,
+    user_metadata: user.user_metadata || {}
+  };
+
+  return JSON.parse(JSON.stringify({ user: safeUser, profile }));
 }
 
 export async function requireUser() {
