@@ -8,10 +8,17 @@ export async function middleware(request) {
     },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    // If variables are missing, we can't do auth checks.
+    // Allow the request to proceed; frontend hardening will handle the UI state.
+    return response;
+  }
+
+  try {
+    const supabase = createServerClient(url, key, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -30,21 +37,22 @@ export async function middleware(request) {
           );
         },
       },
+    });
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 1. If hitting /dashboard routes and not logged in -> /auth
+    if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+      return NextResponse.redirect(new URL("/auth", request.url));
     }
-  );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // 1. If hitting /dashboard routes and not logged in -> /auth
-  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/auth", request.url));
-  }
-
-  // 2. If hitting /auth and already logged in -> /dashboard
-  if (user && request.nextUrl.pathname.startsWith("/auth")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    // 2. If hitting /auth and already logged in -> /dashboard
+    if (user && request.nextUrl.pathname.startsWith("/auth")) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  } catch (error) {
+    console.error("Middleware Auth Error:", error);
+    // Graceful fallback: show the page, don't crash the server.
   }
 
   return response;
