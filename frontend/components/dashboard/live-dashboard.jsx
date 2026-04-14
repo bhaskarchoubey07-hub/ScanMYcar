@@ -58,7 +58,36 @@ export function LiveDashboardProvider({
                 };
               });
 
-              setLiveScans(prev => [newScan, ...prev].slice(0, 50));
+              setLiveScans(prev => {
+                const updated = [newScan, ...prev].slice(0, 50);
+                
+                // --- AI Anomaly Detection ---
+                const recentWindow = 60 * 1000; // 1 minute
+                const recent = updated.filter(s => 
+                  Date.now() - new Date(s.created_at).getTime() < recentWindow
+                );
+
+                const distinctCities = new Set(recent.map(s => s.city).filter(Boolean));
+                
+                if (recent.length > 5 || distinctCities.size > 2) {
+                  // Trigger Persistent Alert
+                  supabase.from("alerts").insert({
+                    vehicle_id: newScan.vehicle_id,
+                    alert_type: "sos",
+                    message: recent.length > 5 
+                      ? "⚠️ High-frequency scan anomaly detected (5+ scans/min)" 
+                      : "⚠️ Suspicious geospatial activity detected",
+                    city: newScan.city,
+                    latitude: newScan.latitude,
+                    longitude: newScan.longitude,
+                    status: "open"
+                  }).then(({ error }) => {
+                    if (error) console.error("Failed to log AI alert:", error);
+                  });
+                }
+                
+                return updated;
+              });
 
               const entry = {
                 id: newScan.id,

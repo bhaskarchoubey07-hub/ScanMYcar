@@ -9,8 +9,8 @@ import { SecurityMonitor } from "@/components/dashboard/security-monitor";
 import { useLiveDashboard } from "@/components/dashboard/live-dashboard";
 import { formatDate } from "@/lib/utils";
 
-const ScanHeatmap = dynamic(
-  () => import("@/components/dashboard/scan-heatmap"),
+const GoogleMapHeatmap = dynamic(
+  () => import("@/components/dashboard/google-map-heatmap"),
   { ssr: false, loading: () => <div className="h-[400px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
 );
 
@@ -19,17 +19,14 @@ const ScanChart = dynamic(
   { ssr: false, loading: () => <div className="h-[300px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
 );
 
+import { DashboardSkeleton } from "@/components/ui/dashboard-skeleton";
+
 export function DashboardHub({ initialVehicles = [], initialDailyScans = [], initialScans = [] }) {
   const { stats, activity, liveScans } = useLiveDashboard();
 
   // Step 4: Strict Loading Guard (requested by user)
-  if (!stats || typeof stats !== "object") {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center p-10 text-center">
-        <div className="size-10 rounded-full border-2 border-neon border-t-transparent animate-spin mb-6" />
-        <p className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 animate-pulse">Initializing Dashboard Core...</p>
-      </div>
-    );
+  if (!stats || typeof stats !== "object" || Object.keys(stats).length === 0) {
+    return <DashboardSkeleton />;
   }
 
   // Safety fallbacks
@@ -57,7 +54,7 @@ export function DashboardHub({ initialVehicles = [], initialDailyScans = [], ini
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-        <ScanHeatmap scans={scansToRender} />
+        <GoogleMapHeatmap scans={scansToRender} />
         <SecurityMonitor scans={scansToRender} />
       </div>
 
