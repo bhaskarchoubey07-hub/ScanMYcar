@@ -349,51 +349,56 @@ export function AuthForm() {
         </motion.div>
 
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-6 space-y-4">
-          <AnimatePresence mode="popLayout">
-            {(mode === "signup" || mode === "phone") && (
-              <motion.div
-                key="signup-fields"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                className="space-y-4"
-              >
-                <motion.label variants={fieldReveal} className="field">
-                  <span>Full name</span>
-                  <motion.input
-                    whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-                    transition={glowTransition}
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Aarav Sharma"
-                  />
-                </motion.label>
-                <motion.label variants={fieldReveal} className="field">
-                  <span>Phone Number</span>
-                  <motion.input
-                    whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-                    transition={glowTransition}
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="+91 9876543210"
-                  />
-                </motion.label>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-6 space-y-4">
+          <AnimatePresence mode="wait" initial={false}>
             {!showOtpStep ? (
               <motion.div
-                key="login-fields"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
+                key="form-content"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.02 }}
+                transition={{ duration: 0.25 }}
                 className="space-y-4"
               >
+                {/* 1. Identity Fields (Name & Phone) for Signup/Mobile */}
+                {(mode === "signup" || mode === "phone") && (
+                  <motion.div
+                    key="identity-fields"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4"
+                  >
+                    <motion.label variants={fieldReveal} className="field">
+                      <span>Full name</span>
+                      <motion.input
+                        whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+                        transition={glowTransition}
+                        value={fullName}
+                        onChange={(event) => setFullName(event.target.value)}
+                        placeholder="Aarav Sharma"
+                      />
+                    </motion.label>
+                    <motion.label variants={fieldReveal} className="field">
+                      <span>Phone Number</span>
+                      <motion.input
+                        whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+                        transition={glowTransition}
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="+91 9876543210"
+                      />
+                    </motion.label>
+                  </motion.div>
+                )}
+
+                {/* 2. Primary Auth Fields (Email & Password) */}
                 {mode !== "phone" && (
-                  <>
+                  <motion.div
+                    key="auth-fields"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4"
+                  >
                     <motion.label variants={fieldReveal} className="field">
                       <span>Email</span>
                       <motion.input
@@ -418,9 +423,10 @@ export function AuthForm() {
                         />
                       </motion.label>
                     )}
-                  </>
+                  </motion.div>
                 )}
 
+                {/* 3. Security (Captcha) */}
                 <motion.div variants={fieldReveal} className="flex justify-center py-2 overflow-hidden rounded-xl bg-white/5 border border-white/5 min-h-[78px] items-center">
                   <HCaptcha
                     sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || "10000000-ffff-ffff-ffff-000000000001"}
@@ -431,6 +437,7 @@ export function AuthForm() {
                   />
                 </motion.div>
 
+                {/* 4. Action Buttons */}
                 {mode === "phone" ? (
                   <motion.div variants={fieldReveal} className="pt-2">
                     <motion.button
