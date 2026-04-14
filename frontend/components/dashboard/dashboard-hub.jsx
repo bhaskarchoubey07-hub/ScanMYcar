@@ -7,6 +7,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { VehicleList } from "@/components/vehicles/vehicle-list";
 import { SecurityMonitor } from "@/components/dashboard/security-monitor";
 import { useLiveDashboard } from "@/components/dashboard/live-dashboard";
+import { OwnerSosDeck } from "@/components/dashboard/owner-sos-deck";
 import { formatDate } from "@/lib/utils";
 
 const GoogleMapHeatmap = dynamic(
@@ -55,7 +56,10 @@ export function DashboardHub({ initialVehicles = [], initialDailyScans = [], ini
 
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
         <GoogleMapHeatmap scans={scansToRender} />
-        <SecurityMonitor scans={scansToRender} />
+        <div className="space-y-5">
+          <OwnerSosDeck vehicles={initialVehicles} />
+          <SecurityMonitor scans={scansToRender} />
+        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">

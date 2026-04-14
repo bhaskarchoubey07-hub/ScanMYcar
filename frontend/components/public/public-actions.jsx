@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useState, useTransition } from "react";
 import { formatPhoneHref, formatWhatsAppHref } from "@/lib/utils";
+import { SosSystem } from "./sos-system";
 
 export function PublicActions({ vehicle }) {
   const [location, setLocation] = useState(null);
@@ -59,34 +60,6 @@ export function PublicActions({ vehicle }) {
     );
   }, [logScan]);
 
-  const sendAlert = () => {
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/alerts", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            vehicleId: vehicle.id,
-            latitude: location?.latitude || null,
-            longitude: location?.longitude || null,
-            alertType: "sos",
-            message: "SOS alert triggered from public vehicle page."
-          })
-        });
-
-        if (response.ok) {
-          setStatus("Emergency SOS sent to owner!");
-        } else {
-          setStatus("Alert service connection failed.");
-        }
-      } catch (err) {
-        setStatus("Network error: SOS signal not sent.");
-      }
-    });
-  };
-
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setStatus("Geolocation is not supported on this device.");
@@ -100,43 +73,45 @@ export function PublicActions({ vehicle }) {
           longitude: position.coords.longitude
         };
         setLocation(coords);
-        setStatus("Live location attached for the next SOS alert.");
+        setStatus("Live location updated.");
       },
       () => setStatus("Location permission was denied.")
     );
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <a href={formatPhoneHref(vehicle.owner_phone)} className="primary-button text-center">
+    <div className="space-y-6">
+      {/* 1. SOS Critical Feature (Major Upgrade) */}
+      <SosSystem vehicle={vehicle} location={location} />
+
+      {/* 2. Owner & Emergency Contact Actions */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <a href={formatPhoneHref(vehicle.owner_phone)} className="primary-button text-center w-full">
           Call owner
         </a>
-        <a href={formatWhatsAppHref(vehicle.owner_phone)} target="_blank" rel="noreferrer" className="secondary-button text-center">
-          WhatsApp
+        <a href={formatWhatsAppHref(vehicle.owner_phone)} target="_blank" rel="noreferrer" className="secondary-button text-center w-full">
+          WhatsApp Owner
         </a>
-        <button type="button" onClick={sendAlert} disabled={pending} className="danger-button">
-          {pending ? "Sending..." : "Emergency alert"}
-        </button>
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <button type="button" onClick={requestLocation} className="secondary-button">
-          Share location
+        <button type="button" onClick={requestLocation} className="secondary-button text-xs font-bold uppercase tracking-widest">
+          Refetch GPS Location
         </button>
-        <a href={formatPhoneHref(vehicle.emergency_contact)} className="secondary-button">
-          Call emergency contact
+        <a href={formatPhoneHref(vehicle.emergency_contact)} className="secondary-button text-xs font-bold uppercase tracking-widest">
+          Contact Family Directly
         </a>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-        <p>Status: {status}</p>
+      <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 text-xs text-slate-400">
+        <p>Telemetric Status: {status}</p>
         {location && (
-          <p className="mt-2 text-slate-400">
-            Location attached: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+          <p className="mt-2 font-mono opacity-80">
+            GPS: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
           </p>
         )}
       </div>
     </div>
   );
 }
+
