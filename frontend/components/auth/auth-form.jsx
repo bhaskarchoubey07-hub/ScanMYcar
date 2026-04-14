@@ -13,6 +13,8 @@ import {
   riseIn,
   staggerContainer
 } from "@/lib/motion";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
+import { useRef } from "react";
 
 const featureItems = [
   ["Dynamic QR", "Unique public profile for every vehicle"],
@@ -57,6 +59,8 @@ export function AuthForm() {
   const [verificationType, setVerificationType] = useState("phone_change"); // phone_change or sms
   const [status, setStatus] = useState("");
   const [activeAction, setActiveAction] = useState("");
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const captchaRef = useRef(null);
   const [pending, startTransition] = useTransition();
 
   // Auto-redirect if session exists
@@ -87,8 +91,14 @@ export function AuthForm() {
 
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
-          password
+          password,
+          options: {
+            captchaToken: captchaToken || undefined
+          }
         });
+
+        captchaRef.current?.resetCaptcha();
+        setCaptchaToken(null);
 
         if (error) {
           setStatus(formatAuthMessage(error.message));
@@ -130,9 +140,13 @@ export function AuthForm() {
           options: {
             data: {
               full_name: fullName || "Vehicle Owner"
-            }
+            },
+            captchaToken: captchaToken || undefined
           }
         });
+
+        captchaRef.current?.resetCaptcha();
+        setCaptchaToken(null);
 
         if (error) {
           setStatus(formatAuthMessage(error.message));
@@ -198,9 +212,13 @@ export function AuthForm() {
             data: {
               full_name: fullName,
               phone
-            }
+            },
+            captchaToken: captchaToken || undefined
           }
         });
+
+        captchaRef.current?.resetCaptcha();
+        setCaptchaToken(null);
 
         if (signUpError) {
           setStatus(formatAuthMessage(signUpError.message));
@@ -293,7 +311,7 @@ export function AuthForm() {
         variants={panelReveal}
         initial="hidden"
         animate="visible"
-        className="glass-panel floating-glow rounded-[2rem] p-7 shadow-glass overflow-y-auto max-h-[min(680px,90vh)] scrollbar-hide"
+        className="glass-panel floating-glow rounded-[2rem] p-7 shadow-glass overflow-y-auto max-h-[90vh] sm:max-h-[800px] scrollbar-hide relative z-20"
       >
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -335,11 +353,11 @@ export function AuthForm() {
             {(mode === "signup" || mode === "phone") && (
               <motion.div
                 key="signup-fields"
-                initial={{ opacity: 0, height: 0, y: -8 }}
-                animate={{ opacity: 1, height: "auto", y: 0 }}
-                exit={{ opacity: 0, height: 0, y: -8 }}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                className="space-y-4 overflow-hidden"
+                className="space-y-4"
               >
                 <motion.label variants={fieldReveal} className="field">
                   <span>Full name</span>
@@ -403,17 +421,27 @@ export function AuthForm() {
                   </>
                 )}
 
+                <motion.div variants={fieldReveal} className="flex justify-center py-2 overflow-hidden rounded-xl bg-white/5 border border-white/5 min-h-[78px] items-center">
+                  <HCaptcha
+                    sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || "10000000-ffff-ffff-ffff-000000000001"}
+                    ref={captchaRef}
+                    onVerify={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken(null)}
+                    theme="dark"
+                  />
+                </motion.div>
+
                 {mode === "phone" ? (
                   <motion.div variants={fieldReveal} className="pt-2">
                     <motion.button
                       type="button"
                       whileHover={{ scale: 1.03, y: -2 }}
                       whileTap={{ scale: 0.98 }}
-                      disabled={pending || !phone}
+                      disabled={pending || !phone || !captchaToken}
                       onClick={signInWithPhone}
                       className="primary-button w-full bg-emerald-500 text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {activeAction === "phone-otp" ? "Sending OTP..." : "Send Verification Code"}
+                      {activeAction === "phone-otp" ? "Sending OTP..." : (captchaToken ? "Send Verification Code" : "Complete Captcha First")}
                     </motion.button>
                   </motion.div>
                 ) : mode === "reset" ? (
@@ -422,12 +450,12 @@ export function AuthForm() {
                       type="button"
                       whileHover={{ scale: 1.04, y: -2 }}
                       whileTap={{ scale: 0.97 }}
-                      disabled={pending || !email}
+                      disabled={pending || !email || !captchaToken}
                       onClick={triggerPasswordReset}
                       className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       <motion.span animate="rest" variants={pulseGlow}>
-                        {activeAction === "reset-password" ? "Sending Link..." : "Send Reset Link"}
+                        {activeAction === "reset-password" ? "Sending Link..." : (captchaToken ? "Send Reset Link" : "Complete Captcha First")}
                       </motion.span>
                     </motion.button>
                     <button 
@@ -444,12 +472,12 @@ export function AuthForm() {
                       type="button"
                       whileHover={{ scale: 1.04, y: -2 }}
                       whileTap={{ scale: 0.97 }}
-                      disabled={pending || !email || !password}
+                      disabled={pending || !email || !password || !captchaToken}
                       onClick={signIn}
                       className="primary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       <motion.span animate="rest" variants={pulseGlow}>
-                        {activeAction === "signin" ? "Signing in..." : "Sign In"}
+                        {activeAction === "signin" ? "Signing in..." : (captchaToken ? "Sign In" : "Complete Captcha First")}
                       </motion.span>
                     </motion.button>
                     <button 
@@ -466,11 +494,11 @@ export function AuthForm() {
                       type="button"
                       whileHover={{ scale: 1.03, y: -2 }}
                       whileTap={{ scale: 0.98 }}
-                      disabled={pending || !email || !password || !phone}
+                      disabled={pending || !email || !password || !phone || !captchaToken}
                       onClick={createAccount}
                       className="secondary-button w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {activeAction === "create-account" ? "Creating Account..." : "Create Account"}
+                      {activeAction === "create-account" ? "Creating Account..." : (captchaToken ? "Create Account" : "Complete Captcha First")}
                     </motion.button>
                   </motion.div>
                 )}
