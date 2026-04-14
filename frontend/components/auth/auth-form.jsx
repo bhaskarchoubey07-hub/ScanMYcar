@@ -349,7 +349,6 @@ export function AuthForm() {
         </motion.div>
 
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-6 space-y-4">
-        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-6 space-y-4">
           <AnimatePresence mode="wait" initial={false}>
             {!showOtpStep ? (
               <motion.div
