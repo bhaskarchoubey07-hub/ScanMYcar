@@ -14,6 +14,26 @@ export default function UpdatePasswordPage() {
   const [status, setStatus] = useState("");
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.push("/auth");
+        router.refresh();
+      } else {
+        setLoading(false);
+      }
+    });
+  }, [supabase, router]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   const handleUpdate = () => {
     startTransition(async () => {
