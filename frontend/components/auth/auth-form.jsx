@@ -361,12 +361,7 @@ export function AuthForm() {
               >
                 {/* 1. Identity Fields (Name & Phone) for Signup/Mobile */}
                 {(mode === "signup" || mode === "phone") && (
-                  <motion.div
-                    key="identity-fields"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4"
-                  >
+                  <div key="identity-fields" className="space-y-4">
                     <motion.label variants={fieldReveal} className="field">
                       <span>Full name</span>
                       <motion.input
@@ -387,17 +382,12 @@ export function AuthForm() {
                         placeholder="+91 9876543210"
                       />
                     </motion.label>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* 2. Primary Auth Fields (Email & Password) */}
                 {mode !== "phone" && (
-                  <motion.div
-                    key="auth-fields"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4"
-                  >
+                  <div key="auth-fields" className="space-y-4">
                     <motion.label variants={fieldReveal} className="field">
                       <span>Email</span>
                       <motion.input
@@ -422,7 +412,7 @@ export function AuthForm() {
                         />
                       </motion.label>
                     )}
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* 3. Security (Captcha) */}
