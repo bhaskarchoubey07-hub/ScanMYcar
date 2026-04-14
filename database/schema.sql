@@ -46,9 +46,39 @@ create table if not exists public.users (
   full_name text not null default '',
   phone text not null default '',
   role public.app_role not null default 'user',
+  password_hash text,
+  is_blocked boolean not null default false,
+  failed_attempts int not null default 0,
+  last_login_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+-- Fintech-Grade Auth Logging
+create table if not exists public.auth_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete cascade,
+  event_type text not null, -- 'login_success', 'login_fail', 'otp_request', 'otp_verify'
+  ip_address text,
+  user_agent text,
+  device_info jsonb,
+  status text not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+-- OTP Management
+create table if not exists public.otp_codes (
+  id uuid primary key default gen_random_uuid(),
+  mobile text not null,
+  code text not null,
+  purpose text not null default 'auth', -- 'auth', 'reset'
+  expires_at timestamptz not null,
+  verified_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists idx_auth_logs_user_id on public.auth_logs(user_id);
+create index if not exists idx_otp_codes_mobile on public.otp_codes(mobile);
 
 create table if not exists public.vehicles (
   id uuid primary key default gen_random_uuid(),

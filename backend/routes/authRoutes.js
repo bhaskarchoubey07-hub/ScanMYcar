@@ -1,35 +1,24 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { register, login, profile } = require('../controllers/authController');
-const { authenticate } = require('../middleware/authMiddleware');
-const { authLimiter } = require('../middleware/rateLimit');
-const { validateRequest } = require('../middleware/validateRequest');
-
+const { register, login, sendOtp, verifyMobileOtp } = require('../controllers/authController');
 const router = express.Router();
 
-router.post(
-  '/register',
-  authLimiter,
-  [
-    body('name').trim().isLength({ min: 2, max: 100 }),
-    body('phone').trim().isLength({ min: 8, max: 20 }),
-    body('email').isEmail().normalizeEmail(),
-    body('password')
-      .isLength({ min: 8 })
-      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/)
-  ],
-  validateRequest,
-  register
-);
+// Validation Middleware
+const signupValidation = [
+  body('name').notEmpty().withMessage('Full name is required.'),
+  body('email').isEmail().withMessage('Valid email is required.'),
+  body('phone').notEmpty().withMessage('Mobile number is required.'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters.')
+    .matches(/(?=.*[0-9])(?=.*[A-Z])(?=.*[!@#$%^&*])/)
+    .withMessage('Password must contain a number, uppercase letter, and special character.')
+];
 
-router.post(
-  '/login',
-  authLimiter,
-  [body('email').isEmail().normalizeEmail(), body('password').notEmpty()],
-  validateRequest,
-  login
-);
-
-router.get('/me', authenticate, profile);
+// Routes
+router.post('/signup', signupValidation, register);
+router.post('/login', login);
+router.post('/send-otp', sendOtp);
+router.post('/verify-otp', verifyMobileOtp);
 
 module.exports = router;

@@ -12,6 +12,7 @@
     "start": "npm run start -w frontend"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.0"
+    "@supabase/supabase-js": "^2.103.0",
+    "jwt-decode": "^4.0.0"
   }
 }

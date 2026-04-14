@@ -1,14 +1,27 @@
 const bcrypt = require('bcryptjs');
-const { createUser, findUserByEmail, findUserById } = require('../models/userModel');
+const { createUser, findUserByEmail, findUserByPhone, findUserById, updateLoginStats, incrementFailedAttempts } = require('../models/userModel');
+const { logAuthEvent, createOtp, verifyOtp } = require('../models/authModel');
 const { signToken } = require('../utils/jwt');
+const { validationResult } = require('express-validator');
 
 const register = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
   try {
     const { name, email, phone, password } = req.body;
     const normalizedEmail = email.toLowerCase();
+    
     const existingUser = await findUserByEmail(normalizedEmail);
-
     if (existingUser) {
+      await logAuthEvent({
+        eventType: 'signup_fail',
+        ipAddress: req.ip,
+        status: 'fail',
+        deviceInfo: { email: normalizedEmail, reason: 'duplicate_email' }
+      });
       return res.status(409).json({ message: 'Email already registered.' });
     }
 
@@ -22,6 +35,13 @@ const register = async (req, res, next) => {
       phone,
       passwordHash,
       role
+    });
+
+    await logAuthEvent({
+      userId,
+      eventType: 'signup_success',
+      ipAddress: req.ip,
+      status: 'success'
     });
 
     const user = await findUserById(userId);
@@ -39,43 +59,129 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    const normalizedEmail = email.toLowerCase();
-    const user = await findUserByEmail(normalizedEmail);
+    const { identifier, password } = req.body; // identifier can be email or phone
+    const normalizedId = identifier.toLowerCase();
+    
+    let user = await findUserByEmail(normalizedId);
+    if (!user) {
+      user = await findUserByPhone(identifier);
+    }
 
     if (!user) {
+      await logAuthEvent({
+        eventType: 'login_fail',
+        ipAddress: req.ip,
+        status: 'fail',
+        deviceInfo: { identifier, reason: 'user_not_found' }
+      });
       return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    if (user.is_blocked) {
+      await logAuthEvent({
+        userId: user.id,
+        eventType: 'login_blocked',
+        ipAddress: req.ip,
+        status: 'blocked'
+      });
+      return res.status(403).json({ message: 'Account is temporarily blocked due to multiple failed attempts.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!isMatch) {
+      await incrementFailedAttempts(user.email);
+      await logAuthEvent({
+        userId: user.id,
+        eventType: 'login_fail',
+        ipAddress: req.ip,
+        status: 'fail',
+        deviceInfo: { identifier, reason: 'wrong_password' }
+      });
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
+    await updateLoginStats(user.id);
+    await logAuthEvent({
+      userId: user.id,
+      eventType: 'login_success',
+      ipAddress: req.ip,
+      status: 'success'
+    });
+
     const token = signToken(user);
+    const { password_hash, ...safeUser } = user;
 
     return res.json({
       message: 'Login successful.',
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        created_at: user.created_at
-      }
+      user: safeUser
     });
   } catch (error) {
     return next(error);
   }
 };
 
-const profile = async (req, res, next) => {
+const sendOtp = async (req, res, next) => {
   try {
-    const user = await findUserById(req.user.id);
-    return res.json({ user });
+    const { mobile } = req.body;
+    if (!mobile) return res.status(400).json({ message: 'Mobile number required.' });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await createOtp({ mobile, code });
+
+    // In a real fintech app, integrated with Twilio/Msg91 here
+    console.log(`[FINTECH-AUTH] Generated OTP for ${mobile}: ${code}`);
+
+    await logAuthEvent({
+      eventType: 'otp_request',
+      ipAddress: req.ip,
+      status: 'success',
+      deviceInfo: { mobile }
+    });
+
+    return res.json({ message: 'OTP sent successfully to your mobile.' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const verifyMobileOtp = async (req, res, next) => {
+  try {
+    const { mobile, code } = req.body;
+    const isValid = await verifyOtp(mobile, code);
+
+    if (!isValid) {
+      await logAuthEvent({
+        eventType: 'otp_verify_fail',
+        ipAddress: req.ip,
+        status: 'fail',
+        deviceInfo: { mobile, code }
+      });
+      return res.status(401).json({ message: 'Invalid or expired OTP.' });
+    }
+
+    let user = await findUserByPhone(mobile);
+    if (!user) {
+      // Passwordless registration or first-time mobile login
+      return res.json({ message: 'OTP verified. Please complete your registration.', mobile, verified: true });
+    }
+
+    await logAuthEvent({
+      userId: user.id,
+      eventType: 'otp_verify_success',
+      ipAddress: req.ip,
+      status: 'success'
+    });
+
+    const token = signToken(user);
+    const { password_hash, ...safeUser } = user;
+
+    return res.json({
+      message: 'Mobile verification successful.',
+      token,
+      user: safeUser
+    });
   } catch (error) {
     return next(error);
   }
@@ -84,5 +190,6 @@ const profile = async (req, res, next) => {
 module.exports = {
   register,
   login,
-  profile
+  sendOtp,
+  verifyMobileOtp
 };
