@@ -374,29 +374,33 @@ export function AuthForm() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-4"
               >
-                <motion.label variants={fieldReveal} className="field">
-                  <span>Email</span>
-                  <motion.input
-                    whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-                    transition={glowTransition}
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="owner@example.com"
-                  />
-                </motion.label>
+                {mode !== "phone" && (
+                  <>
+                    <motion.label variants={fieldReveal} className="field">
+                      <span>Email</span>
+                      <motion.input
+                        whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+                        transition={glowTransition}
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="owner@example.com"
+                      />
+                    </motion.label>
 
-                {mode !== "reset" && (
-                  <motion.label variants={fieldReveal} className="field">
-                    <span>Password</span>
-                    <motion.input
-                      whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
-                      transition={glowTransition}
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Enter your password"
-                    />
-                  </motion.label>
+                    {mode !== "reset" && (
+                      <motion.label variants={fieldReveal} className="field">
+                        <span>Password</span>
+                        <motion.input
+                          whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
+                          transition={glowTransition}
+                          type="password"
+                          value={password}
+                          onChange={(event) => setPassword(event.target.value)}
+                          placeholder="Enter your password"
+                        />
+                      </motion.label>
+                    )}
+                  </>
                 )}
 
                 {mode === "phone" ? (
