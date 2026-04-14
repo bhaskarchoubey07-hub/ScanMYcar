@@ -19,7 +19,8 @@ import {
   CreditCard,
   Smartphone,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { 
   pageReveal, 
@@ -48,12 +49,13 @@ function AuthInput({
   disabled = false,
   showToggle = false,
   onToggle,
-  isToggled
+  isToggled,
+  inputRef // For focusing
 }) {
   const [isFocused, setIsFocused] = useState(false);
   
   return (
-    <div className="relative group w-full mb-6">
+    <div className="relative group w-full mb-6 z-20">
       <div 
         className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all duration-300 ${
           error 
@@ -71,6 +73,7 @@ function AuthInput({
         
         <div className="relative flex-1">
           <input
+            ref={inputRef}
             type={showToggle ? (isToggled ? "text" : "password") : type}
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -122,12 +125,15 @@ export function AuthForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const captchaRef = useRef(null);
+  const otpRef = useRef(null);
 
   // States
-  const [mode, setMode] = useState("signin"); // signin, signup, mobile
+  const [mode, setMode] = useState("signin"); // signin, signup, mobile, forgot
   const [showOtpStep, setShowOtpStep] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [rememberMe, setRememberMe] = useState(false);
   
   // Form Data
   const [formData, setFormData] = useState({
@@ -140,6 +146,22 @@ export function AuthForm() {
   });
   
   const [errors, setErrors] = useState({});
+
+  // OTP Timer Logic
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => setResendTimer(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  // Auto-focus OTP
+  useEffect(() => {
+    if (showOtpStep && otpRef.current) {
+      otpRef.current.focus();
+    }
+  }, [showOtpStep]);
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -155,9 +177,9 @@ export function AuthForm() {
   const validate = () => {
     const newErrors = {};
     if (mode === "signup") {
-      if (!formData.name) newErrors.name = "Name is required";
-      if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Invalid email";
-      if (!formData.phone) newErrors.phone = "Mobile required";
+      if (!formData.name) newErrors.name = "Full name required";
+      if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Valid email required";
+      if (!formData.phone || formData.phone.length !== 10) newErrors.phone = "10-digit mobile required";
       
       if (formData.password.length < 8) {
         newErrors.password = "Min 8 characters required";
@@ -169,10 +191,12 @@ export function AuthForm() {
         newErrors.confirmPassword = "Passwords do not match";
       }
     } else if (mode === "signin") {
-      if (!formData.email) newErrors.email = "Email or Mobile required";
+      if (!formData.email) newErrors.email = "Email/Mobile required";
       if (!formData.password) newErrors.password = "Password required";
     } else if (mode === "mobile") {
-      if (!formData.phone) newErrors.phone = "Mobile required";
+      if (!formData.phone || formData.phone.length !== 10) newErrors.phone = "10-digit mobile required";
+    } else if (mode === "forgot") {
+      if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Valid email required";
     }
 
     setErrors(newErrors);
@@ -181,7 +205,7 @@ export function AuthForm() {
 
   const handleSignup = async () => {
     if (!validate() || !captchaVerified) {
-      if (!captchaVerified) toast.error("Please complete the reCAPTCHA");
+      if (!captchaVerified) toast.error("Complete reCAPTCHA verification");
       return;
     }
 
@@ -193,17 +217,16 @@ export function AuthForm() {
           phone: formData.phone,
           password: formData.password
         });
-        
         if (res.data.token) {
-          Cookies.set("auth-token", res.data.token, { expires: 7 }); 
+          Cookies.set("auth-token", res.data.token, { expires: rememberMe ? 7 : 1 }); 
         }
-
         toast.success("Account created successfully!");
         router.push("/dashboard");
         router.refresh();
       } catch (err) {
-        const msg = err.response?.data?.message || "Signup failed";
-        toast.error(msg);
+        toast.error(err.response?.data?.message || "Signup failed");
+        captchaRef.current?.reset();
+        setCaptchaVerified(false);
       }
     });
   };
@@ -217,17 +240,14 @@ export function AuthForm() {
           identifier: formData.email,
           password: formData.password
         });
-
         if (res.data.token) {
-          Cookies.set("auth-token", res.data.token, { expires: 7 });
+          Cookies.set("auth-token", res.data.token, { expires: rememberMe ? 7 : 1 });
         }
-
         toast.success("Welcome back!");
         router.push("/dashboard");
         router.refresh();
       } catch (err) {
-        const msg = err.response?.data?.message || "Invalid credentials";
-        toast.error(msg);
+        toast.error(err.response?.data?.message || "Invalid credentials");
         captchaRef.current?.reset();
         setCaptchaVerified(false);
       }
@@ -235,15 +255,13 @@ export function AuthForm() {
   };
 
   const handleSendOtp = async () => {
-    if (!formData.phone) {
-      setErrors({ phone: "Mobile required" });
-      return;
-    }
+    if (!validate()) return;
 
     startTransition(async () => {
       try {
         await axios.post(`${API_BASE}/send-otp`, { mobile: formData.phone });
         setShowOtpStep(true);
+        setResendTimer(30);
         toast.success("OTP sent successfully!");
       } catch (err) {
         toast.error(err.response?.data?.message || "Failed to send OTP");
@@ -253,7 +271,7 @@ export function AuthForm() {
 
   const handleVerifyOtp = async () => {
     if (!formData.otp || formData.otp.length < 6) {
-      setErrors({ otp: "Enter valid OTP" });
+      setErrors({ otp: "Enter valid 6-digit OTP" });
       return;
     }
 
@@ -263,12 +281,10 @@ export function AuthForm() {
           mobile: formData.phone,
           code: formData.otp
         });
-
         if (res.data.token) {
           Cookies.set("auth-token", res.data.token, { expires: 7 });
         }
-
-        toast.success("Verified successfully!");
+        toast.success("Identity verified!");
         router.push("/dashboard");
         router.refresh();
       } catch (err) {
@@ -277,11 +293,24 @@ export function AuthForm() {
     });
   };
 
+  const handleForgotPassword = async () => {
+    if (!validate()) return;
+    startTransition(async () => {
+      try {
+        await axios.post(`${API_BASE}/forgot-password`, { email: formData.email });
+        toast.success("Reset link sent if account exists.");
+        setMode("signin");
+      } catch (err) {
+        toast.error("Process failed. Try again.");
+      }
+    });
+  };
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden bg-slate-950">
       {/* Premium Background Elements */}
-      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-emerald-500/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2" />
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2" />
+      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-emerald-500/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
       
       <motion.div 
         initial="hidden" 
@@ -290,7 +319,7 @@ export function AuthForm() {
         className="max-w-6xl w-full grid lg:grid-cols-[1fr_500px] gap-12 items-center relative z-10"
       >
         {/* Brand Side */}
-        <div className="hidden lg:block space-y-8">
+        <div className="hidden lg:block space-y-8 pointer-events-none">
           <motion.div variants={riseIn} className="flex items-center gap-3">
             <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.4)]">
               <ShieldCheck className="text-slate-950 w-7 h-7" />
@@ -303,7 +332,7 @@ export function AuthForm() {
           </motion.h1>
           
           <motion.p variants={delayedRise(0.2)} className="text-xl text-slate-400 max-w-lg leading-relaxed">
-            Secure vehicle verification and emergency response platform built with institutional-grade security and advanced fraud prevention.
+            Secure vehicle verification and emergency response platform built with institutional-grade security.
           </motion.p>
 
           <motion.div variants={staggerContainer} className="grid grid-cols-2 gap-6 pt-4">
@@ -314,7 +343,7 @@ export function AuthForm() {
               { label: "Trusted by 50K+", icon: User }
             ].map((item, idx) => (
               <motion.div key={idx} variants={riseIn} className="flex items-center gap-3 text-slate-300">
-                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10">
                   <item.icon className="w-5 h-5 text-emerald-400" />
                 </div>
                 <span className="text-sm font-semibold">{item.label}</span>
@@ -326,29 +355,28 @@ export function AuthForm() {
         {/* Form Card */}
         <motion.div 
           variants={panelReveal}
-          className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl relative"
+          className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl relative z-30"
         >
-          {/* Internal Glow */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 blur-3xl rounded-full" />
-          
           {/* Tabs */}
-          <div className="flex bg-slate-900/50 p-1 rounded-2xl mb-10 border border-white/5">
-            {[
-              { id: "signin", label: "Sign In" },
-              { id: "mobile", label: "Mobile" },
-              { id: "signup", label: "Create Account" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => { setMode(tab.id); setShowOtpStep(false); setErrors({}); }}
-                className={`flex-1 py-3 text-sm font-bold uppercase tracking-widest rounded-xl transition-all duration-300 ${
-                  mode === tab.id ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20" : "text-slate-500 hover:text-slate-300"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {mode !== "forgot" && (
+            <div className="flex bg-slate-900/50 p-1 rounded-2xl mb-10 border border-white/5 relative z-40">
+              {[
+                { id: "signin", label: "Sign In" },
+                { id: "mobile", label: "Mobile" },
+                { id: "signup", label: "Create Account" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setMode(tab.id); setShowOtpStep(false); setErrors({}); }}
+                  className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest rounded-xl transition-all duration-300 ${
+                    mode === tab.id ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20" : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             {!showOtpStep ? (
@@ -359,6 +387,13 @@ export function AuthForm() {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
+                {mode === "forgot" && (
+                  <div className="text-center mb-8">
+                    <h3 className="text-2xl font-bold text-white mb-2">Account Recovery</h3>
+                    <p className="text-slate-400 text-sm">Enter your registered email to receive a reset link</p>
+                  </div>
+                )}
+
                 {mode === "signup" && (
                   <AuthInput 
                     label="Full Name" 
@@ -378,37 +413,35 @@ export function AuthForm() {
                   error={mode === "mobile" ? errors.phone : errors.email}
                 />
 
-                {mode !== "mobile" && (
-                  <>
-                    <AuthInput 
-                      label="Password" 
-                      icon={Lock} 
-                      type="password"
-                      value={formData.password} 
-                      onChange={v => updateField("password", v)}
-                      showToggle 
-                      isToggled={showPassword} 
-                      onToggle={() => setShowPassword(!showPassword)}
-                      error={errors.password}
-                    />
-                    
-                    {mode === "signup" && (
-                      <AuthInput 
-                        label="Confirm Password" 
-                        icon={ShieldCheck} 
-                        type="password"
-                        value={formData.confirmPassword} 
-                        onChange={v => updateField("confirmPassword", v)}
-                        error={errors.confirmPassword}
-                      />
-                    )}
-                  </>
+                {(mode === "signin" || mode === "signup") && (
+                  <AuthInput 
+                    label="Password" 
+                    icon={Lock} 
+                    type="password"
+                    value={formData.password} 
+                    onChange={v => updateField("password", v)}
+                    showToggle 
+                    isToggled={showPassword} 
+                    onToggle={() => setShowPassword(!showPassword)}
+                    error={errors.password}
+                  />
+                )}
+                
+                {mode === "signup" && (
+                  <AuthInput 
+                    label="Confirm Password" 
+                    icon={ShieldCheck} 
+                    type="password"
+                    value={formData.confirmPassword} 
+                    onChange={v => updateField("confirmPassword", v)}
+                    error={errors.confirmPassword}
+                  />
                 )}
 
                 {/* reCAPTCHA */}
-                <div className="flex justify-center mb-8 transform scale-90 origin-center bg-slate-900/40 p-3 rounded-2xl border border-white/5">
+                <div className="flex justify-center mb-8 transform scale-90 origin-center bg-slate-900/40 p-3 rounded-2xl border border-white/5 z-50 relative">
                   <ReCAPTCHA
-                    sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" // Generic test key
+                    sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
                     onChange={(val) => setCaptchaVerified(!!val)}
                     theme="dark"
                     ref={captchaRef}
@@ -417,28 +450,47 @@ export function AuthForm() {
 
                 <div className="space-y-4">
                   <button
-                    onClick={mode === "signup" ? handleSignup : mode === "signin" ? handleSignin : handleSendOtp}
+                    onClick={mode === "signup" ? handleSignup : mode === "signin" ? handleSignin : mode === "mobile" ? handleSendOtp : handleForgotPassword}
                     disabled={isPending}
-                    className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black uppercase tracking-[0.2em] py-4 rounded-2xl transition-all duration-300 shadow-[0_10px_30px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3 h-16"
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black uppercase tracking-[0.2em] py-4 rounded-2xl transition-all duration-300 shadow-[0_10px_30px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3 h-16 z-50 relative"
                   >
                     {isPending ? (
-                      <div className="w-6 h-6 border-4 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                      <Loader2 className="w-6 h-6 animate-spin text-slate-950" />
                     ) : (
                       <>
-                        {mode === "signup" ? "Create Account" : mode === "signin" ? "Sign Integrity" : "Access Vault"}
+                        {mode === "signup" ? "Create Account" : mode === "signin" ? "Sign Integrity" : mode === "mobile" ? "Access Vault" : "Send Recovery Link"}
                         <ArrowRight className="w-5 h-5" />
                       </>
                     )}
                   </button>
 
                   <div className="flex items-center justify-between px-2 pt-2">
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer group">
-                      <input type="checkbox" className="w-4 h-4 rounded border-white/10 bg-white/5 appearance-none checked:bg-emerald-500 transition-all cursor-pointer" />
-                      <span className="group-hover:text-slate-300 transition-colors">REMEMBER IDENTITY</span>
-                    </label>
-                    <button className="text-xs font-bold text-slate-500 hover:text-emerald-400 tracking-widest transition-colors">
-                      FORGOT PASSWORD?
-                    </button>
+                    {mode !== "forgot" ? (
+                      <>
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer group">
+                          <input 
+                            type="checkbox" 
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="w-4 h-4 rounded border-white/10 bg-white/5 appearance-none checked:bg-emerald-500 transition-all cursor-pointer" 
+                          />
+                          <span className="group-hover:text-slate-300 transition-colors uppercase tracking-wider">Remember ID</span>
+                        </label>
+                        <button 
+                          onClick={() => setMode("forgot")}
+                          className="text-xs font-bold text-slate-500 hover:text-emerald-400 tracking-widest transition-colors uppercase"
+                        >
+                          Forgot Link?
+                        </button>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => setMode("signin")}
+                        className="text-xs font-bold text-slate-500 hover:text-emerald-400 tracking-widest transition-colors uppercase mx-auto"
+                      >
+                        Back to Security Check
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -454,18 +506,17 @@ export function AuthForm() {
                     <Smartphone className="w-10 h-10 text-emerald-400" />
                   </div>
                   <h3 className="text-2xl font-extrabold text-white">Trust Verification</h3>
-                  <p className="text-slate-400 leading-relaxed">
-                    We've sent a 6-digit verification sequence to <br />
-                    <span className="text-emerald-400 font-bold">{formData.phone}</span>
+                  <p className="text-slate-400 leading-relaxed text-sm">
+                    Sequence sent to <span className="text-emerald-400 font-bold">{formData.phone}</span>
                   </p>
                 </div>
 
                 <AuthInput 
                   label="6-Digit OTP" 
                   icon={ShieldCheck} 
-                  type="text"
+                  inputRef={otpRef}
                   value={formData.otp} 
-                  onChange={v => updateField("otp", v)}
+                  onChange={v => updateField("otp", v.replace(/\D/g, "").slice(0, 6))}
                   error={errors.otp}
                   placeholder="000000"
                 />
@@ -474,16 +525,17 @@ export function AuthForm() {
                   <button
                     onClick={handleVerifyOtp}
                     disabled={isPending}
-                    className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black uppercase tracking-[0.2em] py-4 rounded-2xl transition-all duration-300 flex items-center justify-center h-16"
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black uppercase tracking-[0.2em] py-4 rounded-2xl transition-all duration-300 flex items-center justify-center h-16 shadow-[0_10px_30px_rgba(16,185,129,0.3)] z-50 relative"
                   >
-                    {isPending ? "Validating..." : "Confirm Integrity"}
+                    {isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : "Confirm Integrity"}
                   </button>
                   
                   <button 
-                    onClick={() => setShowOtpStep(false)}
-                    className="text-xs font-black text-slate-500 hover:text-white uppercase tracking-[0.2em] transition-colors"
+                    disabled={resendTimer > 0 || isPending}
+                    onClick={handleSendOtp}
+                    className="text-xs font-black text-slate-500 hover:text-white uppercase tracking-[0.2em] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Resend Security Code
+                    {resendTimer > 0 ? `Resend Sequence in ${resendTimer}s` : "Resend Security Code"}
                   </button>
                 </div>
               </motion.div>
@@ -492,15 +544,11 @@ export function AuthForm() {
         </motion.div>
       </motion.div>
       
-      {/* Dynamic Status Badges (Bonus) */}
-      <div className="fixed bottom-8 left-8 flex gap-4 pointer-events-none">
+      {/* Dynamic Status Badges */}
+      <div className="fixed bottom-8 left-8 flex gap-4 pointer-events-none z-50">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-white/5 backdrop-blur-md">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Node Cluster: Active</span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-white/5 backdrop-blur-md">
-          <div className="w-2 h-2 rounded-full bg-cyan-500" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">SSL: Verified</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Node: Active</span>
         </div>
       </div>
     </div>

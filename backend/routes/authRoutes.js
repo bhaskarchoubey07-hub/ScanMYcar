@@ -20,5 +20,6 @@ router.post('/signup', signupValidation, register);
 router.post('/login', login);
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp', verifyMobileOtp);
+router.post('/forgot-password', forgotPassword);
 
 module.exports = router;

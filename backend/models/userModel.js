@@ -61,7 +61,7 @@ const findUserById = async (id) => {
   }
 
   const result = await pool.query(
-    'SELECT id, name, email, phone, role, is_blocked, failed_attempts, created_at FROM users WHERE id = $1 LIMIT 1',
+    'SELECT id, name, email, phone, role, is_blocked, blocked_until, failed_attempts, created_at FROM users WHERE id = $1 LIMIT 1',
     [id]
   );
   return result.rows[0] || null;
@@ -73,6 +73,8 @@ const updateLoginStats = async (userId) => {
       const idx = data.users.findIndex(u => u.id === userId);
       if (idx !== -1) {
         data.users[idx].failed_attempts = 0;
+        data.users[idx].is_blocked = false;
+        data.users[idx].blocked_until = null;
         data.users[idx].last_login_at = new Date().toISOString();
       }
     });
@@ -80,7 +82,7 @@ const updateLoginStats = async (userId) => {
 
   await pool.query(
     `UPDATE users 
-     SET failed_attempts = 0, last_login_at = CURRENT_TIMESTAMP 
+     SET failed_attempts = 0, is_blocked = false, blocked_until = NULL, last_login_at = CURRENT_TIMESTAMP 
      WHERE id = $1`,
     [userId]
   );
@@ -94,6 +96,7 @@ const incrementFailedAttempts = async (email) => {
         data.users[idx].failed_attempts = (data.users[idx].failed_attempts || 0) + 1;
         if (data.users[idx].failed_attempts >= 5) {
           data.users[idx].is_blocked = true;
+          data.users[idx].blocked_until = new Date(Date.now() + 5 * 60000).toISOString(); // 5 min
         }
       }
     });
@@ -102,7 +105,8 @@ const incrementFailedAttempts = async (email) => {
   await pool.query(
     `UPDATE users 
      SET failed_attempts = failed_attempts + 1,
-         is_blocked = CASE WHEN failed_attempts + 1 >= 5 THEN true ELSE is_blocked END
+         is_blocked = CASE WHEN failed_attempts + 1 >= 5 THEN true ELSE is_blocked END,
+         blocked_until = CASE WHEN failed_attempts + 1 >= 5 THEN CURRENT_TIMESTAMP + interval '5 minutes' ELSE blocked_until END
      WHERE email = $1`,
     [email]
   );

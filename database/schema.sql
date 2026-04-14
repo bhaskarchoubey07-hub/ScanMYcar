@@ -49,9 +49,19 @@ create table if not exists public.users (
   password_hash text,
   is_blocked boolean not null default false,
   failed_attempts int not null default 0,
+  blocked_until timestamptz,
   last_login_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
+);
+
+-- Secure Password Recovery
+create table if not exists public.password_reset_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete cascade,
+  token text not null unique,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default timezone('utc', now())
 );
 
 -- Fintech-Grade Auth Logging

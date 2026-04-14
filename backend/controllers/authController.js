@@ -19,6 +19,7 @@ const register = async (req, res, next) => {
       await logAuthEvent({
         eventType: 'signup_fail',
         ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
         status: 'fail',
         deviceInfo: { email: normalizedEmail, reason: 'duplicate_email' }
       });
@@ -41,6 +42,7 @@ const register = async (req, res, next) => {
       userId,
       eventType: 'signup_success',
       ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
       status: 'success'
     });
 
@@ -59,7 +61,7 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const { identifier, password } = req.body; // identifier can be email or phone
+    const { identifier, password } = req.body;
     const normalizedId = identifier.toLowerCase();
     
     let user = await findUserByEmail(normalizedId);
@@ -71,20 +73,24 @@ const login = async (req, res, next) => {
       await logAuthEvent({
         eventType: 'login_fail',
         ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
         status: 'fail',
         deviceInfo: { identifier, reason: 'user_not_found' }
       });
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    if (user.is_blocked) {
+    // Check for temporary lockout
+    if (user.is_blocked && user.blocked_until && new Date(user.blocked_until) > new Date()) {
+      const waitTime = Math.ceil((new Date(user.blocked_until) - new Date()) / 60000);
       await logAuthEvent({
         userId: user.id,
         eventType: 'login_blocked',
         ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
         status: 'blocked'
       });
-      return res.status(403).json({ message: 'Account is temporarily blocked due to multiple failed attempts.' });
+      return res.status(403).json({ message: `Account locked. Try again in ${waitTime} minutes.` });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
@@ -95,6 +101,7 @@ const login = async (req, res, next) => {
         userId: user.id,
         eventType: 'login_fail',
         ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
         status: 'fail',
         deviceInfo: { identifier, reason: 'wrong_password' }
       });
@@ -106,6 +113,7 @@ const login = async (req, res, next) => {
       userId: user.id,
       eventType: 'login_success',
       ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
       status: 'success'
     });
 
@@ -130,12 +138,12 @@ const sendOtp = async (req, res, next) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     await createOtp({ mobile, code });
 
-    // In a real fintech app, integrated with Twilio/Msg91 here
     console.log(`[FINTECH-AUTH] Generated OTP for ${mobile}: ${code}`);
 
     await logAuthEvent({
       eventType: 'otp_request',
       ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
       status: 'success',
       deviceInfo: { mobile }
     });
@@ -155,6 +163,7 @@ const verifyMobileOtp = async (req, res, next) => {
       await logAuthEvent({
         eventType: 'otp_verify_fail',
         ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
         status: 'fail',
         deviceInfo: { mobile, code }
       });
@@ -163,7 +172,6 @@ const verifyMobileOtp = async (req, res, next) => {
 
     let user = await findUserByPhone(mobile);
     if (!user) {
-      // Passwordless registration or first-time mobile login
       return res.json({ message: 'OTP verified. Please complete your registration.', mobile, verified: true });
     }
 
@@ -171,6 +179,7 @@ const verifyMobileOtp = async (req, res, next) => {
       userId: user.id,
       eventType: 'otp_verify_success',
       ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
       status: 'success'
     });
 
@@ -187,9 +196,33 @@ const verifyMobileOtp = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await findUserByEmail(email.toLowerCase());
+
+    if (user) {
+      console.log(`[FINTECH-AUTH] Password reset requested for ${email}. Simulation: Token generated.`);
+      await logAuthEvent({
+        userId: user.id,
+        eventType: 'password_reset_request',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        status: 'success'
+      });
+    }
+
+    // Always return success for security (prevent email enumeration)
+    return res.json({ message: 'Checking credentials. If match, reset instructions sent.' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   sendOtp,
-  verifyMobileOtp
+  verifyMobileOtp,
+  forgotPassword
 };

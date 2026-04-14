@@ -7,6 +7,8 @@ const authRoutes = require("./routes/authRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes");
 const scanRoutes = require("./routes/scanRoutes");
 const alertRoutes = require("./routes/alertRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 
 // Import Middleware
 const { authLimiter } = require("./middleware/rateLimiter");
@@ -26,6 +28,8 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/alerts", alertRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/public", publicRoutes);
 
 // Health Check
 app.get("/", (req, res) => {

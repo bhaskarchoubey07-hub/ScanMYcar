@@ -1,103 +1,96 @@
-const UAParser = require('ua-parser-js');
-const { findVehicleById } = require('../models/vehicleModel');
-const { createScan } = require('../models/scanModel');
-const { sendScanNotification } = require('../utils/email');
+const supabase = require("../supabaseClient");
+const UAParser = require("ua-parser-js");
 
 const getClientIp = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-
-  return req.ip || req.socket?.remoteAddress || 'unknown';
+  const forwarded = req.headers["x-forwarded-for"];
+  return forwarded ? forwarded.split(",")[0].trim() : req.ip || "unknown";
 };
 
-const getPublicVehicle = async (req, res, next) => {
-  try {
-    const vehicle = await findVehicleById(req.params.vehicleId);
+/**
+ * Public Identity Discovery
+ */
+const getPublicVehicle = async (req, res) => {
+  const { slug } = req.params;
 
-    if (!vehicle) {
-      return res.status(404).json({ message: 'Vehicle not found.' });
+  try {
+    const { data: vehicle, error } = await supabase
+      .from("vehicles")
+      .select("id, vehicle_number, vehicle_type, owner_name, owner_phone, emergency_contact, medical_info, is_public")
+      .eq("qr_slug", slug)
+      .eq("is_public", true)
+      .single();
+
+    if (error || !vehicle) {
+      return res.status(404).json({ error: "Vehicle identity not found or restricted." });
     }
 
-    return res.json({
-      vehicle: {
-        id: vehicle.id,
-        vehicle_number: vehicle.vehicle_number,
-        vehicle_type: vehicle.vehicle_type,
-        owner_name: vehicle.owner_name
-      }
-    });
+    return res.json(vehicle);
   } catch (error) {
-    return next(error);
+    console.error("Public Discovery Failure:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
-const logScan = async (req, res, next) => {
+/**
+ * Scan Telemetry & AI Anomaly Detection
+ */
+const logScan = async (req, res) => {
+  const { vehicle_id, latitude, longitude, city, region } = req.body;
+
   try {
-    const { vehicle_id: vehicleId, latitude, longitude } = req.body;
-    const vehicle = await findVehicleById(vehicleId);
-
-    if (!vehicle) {
-      return res.status(404).json({ message: 'Vehicle not found.' });
-    }
-
-    const parser = new UAParser(req.headers['user-agent']);
+    const parser = new UAParser(req.headers["user-agent"]);
     const result = parser.getResult();
     const device = [result.device.vendor, result.device.model, result.browser.name, result.os.name]
       .filter(Boolean)
-      .join(' | ') || 'Unknown device';
+      .join(" | ") || "Unknown node";
 
-    await createScan({
-      vehicleId,
-      ipAddress: getClientIp(req),
-      device,
-      latitude: latitude ?? null,
-      longitude: longitude ?? null
-    });
+    // 1. Log the scan event
+    const { data: scan, error: sError } = await supabase.from("scans").insert([
+      {
+        vehicle_id,
+        ip_address: getClientIp(req),
+        device_info: device,
+        latitude,
+        longitude,
+        city,
+        region
+      }
+    ]).select().single();
 
-    await sendScanNotification({
-      email: vehicle.user_email,
-      vehicleNumber: vehicle.vehicle_number,
-      scannedAt: new Date().toISOString()
-    });
+    if (sError) throw sError;
 
-    return res.status(201).json({ message: 'Scan logged successfully.' });
-  } catch (error) {
-    return next(error);
-  }
-};
+    // 2. AI Anomaly Detection (Institutional Security)
+    // Check for high-frequency scanning (DoS or Tampering)
+    const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+    const { count, error: cError } = await supabase
+      .from("scans")
+      .select("id", { count: "exact", head: true })
+      .eq("vehicle_id", vehicle_id)
+      .gte("created_at", oneMinuteAgo);
 
-const contactRedirect = async (req, res, next) => {
-  try {
-    const { vehicleId, method } = req.params;
-    const vehicle = await findVehicleById(vehicleId);
-
-    if (!vehicle) {
-      return res.status(404).json({ message: 'Vehicle not found.' });
+    if (!cError && count > 5) {
+      console.log(`[SECURITY-AI] Anomaly detected for vehicle ${vehicle_id}. Triggering auto-alert.`);
+      
+      // Auto-generate SOS Alert due to tampering
+      await supabase.from("alerts").insert([{
+        vehicle_id,
+        alert_type: "tampering",
+        message: `High-frequency scan detected (${count} scans in 60s). Possible malicious activity.`,
+        status: "open",
+        latitude,
+        longitude,
+        city
+      }]);
     }
 
-    const sanitized = String(vehicle.contact_phone).replace(/[^\d+]/g, '');
-    const targets = {
-      call: `tel:${sanitized}`,
-      whatsapp: `https://wa.me/${sanitized.replace('+', '')}`,
-      message: `sms:${sanitized}`
-    };
-
-    const target = targets[method];
-
-    if (!target) {
-      return res.status(400).json({ message: 'Unsupported contact method.' });
-    }
-
-    return res.redirect(target);
+    return res.status(201).json({ message: "Scan sequence logged." });
   } catch (error) {
-    return next(error);
+    console.error("Scan Telemetry Failure:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 module.exports = {
   getPublicVehicle,
-  logScan,
-  contactRedirect
+  logScan
 };

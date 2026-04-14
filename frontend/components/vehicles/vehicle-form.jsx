@@ -1,161 +1,247 @@
 "use client";
 
-import Link from "next/link";
-import { motion } from "framer-motion";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { deleteVehicleAction, upsertVehicleAction } from "@/lib/actions";
-import { fieldReveal, pageReveal, pulseGlow, staggerContainer } from "@/lib/motion";
+import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import toast from "react-hot-toast";
+import { 
+  Car, 
+  Trash2, 
+  Save, 
+  X, 
+  Smartphone, 
+  ShieldAlert, 
+  User, 
+  Hash,
+  Loader2,
+  ChevronDown
+} from "lucide-react";
+import { pageReveal, fieldReveal, staggerContainer } from "@/lib/motion";
 
-const focusMotion = {
-  scale: 1.02,
-  boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)"
-};
+const API_BASE = "http://localhost:5000/api/vehicles";
 
-export function VehicleForm({ vehicle, scope = "owner" }) {
+/**
+ * Premium Vehicle Input (Fintech Style)
+ */
+function PremiumInput({ label, icon: Icon, value, onChange, placeholder = " ", error, type = "text", required = true }) {
+  const [isFocused, setIsFocused] = useState(false);
+  return (
+    <div className="relative group w-full mb-6">
+      <div 
+        className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all duration-300 ${
+          error 
+            ? "border-red-500/50 bg-red-500/5" 
+            : isFocused 
+              ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]" 
+              : "border-white/10 bg-white/5 group-hover:border-white/20"
+        }`}
+      >
+        {Icon && <Icon className={`w-5 h-5 ${isFocused ? "text-emerald-400" : "text-slate-400"}`} />}
+        <div className="relative flex-1">
+          <input
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            required={required}
+            className="w-full bg-transparent outline-none text-white text-base font-medium placeholder-transparent"
+            placeholder={placeholder}
+          />
+          <label 
+            className={`absolute left-0 pointer-events-none transition-all duration-300 ${
+              isFocused || value 
+                ? "-top-6 text-xs font-semibold text-emerald-400 uppercase tracking-widest" 
+                : "top-0 text-base text-slate-500"
+            }`}
+          >
+            {label}
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function VehicleForm({ vehicle }) {
   const router = useRouter();
-  const [message, setMessage] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const [formData, setFormData] = useState({
+    vehicle_number: vehicle?.vehicle_number || "",
+    vehicle_type: vehicle?.vehicle_type || "Car",
+    owner_name: vehicle?.owner_name || "",
+    contact_phone: vehicle?.owner_phone || "",
+    emergency_contact: vehicle?.emergency_contact || "",
+    medical_info: vehicle?.medical_info || "",
+    is_public: vehicle?.is_public ?? true
+  });
 
-  const submit = (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     startTransition(async () => {
-      const result = await upsertVehicleAction(formData, scope);
-      setMessage(result.message);
-      if (result.success && result.redirectTo) {
-        router.push(result.redirectTo);
+      try {
+        const token = localStorage.getItem("auth-token") || document.cookie.split('auth-token=')[1]?.split(';')[0];
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        if (vehicle?.id) {
+          await axios.put(`${API_BASE}/${vehicle.id}`, formData, config);
+          toast.success("Security profile updated.");
+        } else {
+          await axios.post(API_BASE, formData, config);
+          toast.success("Vehicle identity registered.");
+        }
+        
+        router.push("/dashboard");
         router.refresh();
+      } catch (err) {
+        toast.error(err.response?.data?.error || "Transaction failed.");
       }
     });
   };
 
-  const remove = () => {
-    if (!vehicle?.id || !window.confirm("Delete this vehicle and all associated scans and alerts?")) {
-      return;
-    }
-
+  const handleDelete = async () => {
+    if (!window.confirm("Permanently wipe this vehicle identity?")) return;
+    
     startTransition(async () => {
-      const result = await deleteVehicleAction(vehicle.id);
-      setMessage(result.message);
-      if (result.success) {
-        router.push(scope === "admin" ? "/dashboard/admin" : "/dashboard/vehicles");
+      try {
+        const token = localStorage.getItem("auth-token") || document.cookie.split('auth-token=')[1]?.split(';')[0];
+        await axios.delete(`${API_BASE}/${vehicle.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success("Vehicle identity purged.");
+        router.push("/dashboard");
         router.refresh();
+      } catch (err) {
+        toast.error("Cleanup failed.");
       }
     });
   };
 
   return (
-    <motion.form onSubmit={submit} initial="hidden" animate="visible" variants={pageReveal} className="glass-panel floating-glow rounded-[2rem] p-6">
-      {vehicle?.id && <input type="hidden" name="id" defaultValue={vehicle.id} />}
-      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid gap-5 md:grid-cols-2">
-        <motion.label variants={fieldReveal} className="field">
-          <span>Vehicle number</span>
-          <motion.input
-            whileFocus={focusMotion}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            name="vehicle_number"
-            defaultValue={vehicle?.vehicle_number}
-            placeholder="KA01AB1234"
-            required
+    <motion.form 
+      onSubmit={handleSubmit}
+      initial="hidden" animate="visible" variants={pageReveal}
+      className="max-w-4xl mx-auto space-y-8"
+    >
+      <div className="glass-panel floating-glow rounded-[2.5rem] p-8 lg:p-10">
+        <div className="grid md:grid-cols-2 gap-x-8">
+          <PremiumInput 
+            label="Vehicle Number" 
+            icon={Hash} 
+            value={formData.vehicle_number} 
+            onChange={v => setFormData(p => ({...p, vehicle_number: v}))}
+            placeholder="KA 01 AB 1234"
           />
-        </motion.label>
-        <motion.label variants={fieldReveal} className="field">
-          <span>Owner name</span>
-          <motion.input
-            whileFocus={focusMotion}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            name="owner_name"
-            defaultValue={vehicle?.owner_name}
-            placeholder="Aarav Sharma"
-            required
+
+          <div className="relative mb-6">
+            <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-white/10 bg-white/5">
+              <Car className="w-5 h-5 text-slate-400" />
+              <div className="flex-1">
+                <select 
+                  value={formData.vehicle_type}
+                  onChange={(e) => setFormData(p => ({...p, vehicle_type: e.target.value}))}
+                  className="w-full bg-transparent outline-none text-white text-base font-medium appearance-none cursor-pointer"
+                >
+                  <option className="bg-slate-900" value="Car">Sedan / SUV</option>
+                  <option className="bg-slate-900" value="Two-wheeler">Motorcycle / Scooter</option>
+                  <option className="bg-slate-900" value="Commercial">Commercial Truck</option>
+                  <option className="bg-slate-900" value="Other">Special Identity</option>
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+                <label className="absolute left-10 -top-6 text-xs font-semibold text-emerald-400 uppercase tracking-widest">
+                  Vehicle Category
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <PremiumInput 
+            label="Owner Legal Name" 
+            icon={User} 
+            value={formData.owner_name} 
+            onChange={v => setFormData(p => ({...p, owner_name: v}))}
           />
-        </motion.label>
-        <motion.label variants={fieldReveal} className="field">
-          <span>Owner phone</span>
-          <motion.input
-            whileFocus={focusMotion}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            name="owner_phone"
-            defaultValue={vehicle?.owner_phone}
-            placeholder="+91 9876543210"
-            required
+
+          <PremiumInput 
+            label="Verification Phone" 
+            icon={Smartphone} 
+            value={formData.contact_phone} 
+            onChange={v => setFormData(p => ({...p, contact_phone: v}))}
+            type="tel"
           />
-        </motion.label>
-        <motion.label variants={fieldReveal} className="field">
-          <span>Emergency contact</span>
-          <motion.input
-            whileFocus={focusMotion}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            name="emergency_contact"
-            defaultValue={vehicle?.emergency_contact}
-            placeholder="+91 9988776655"
-            required
+
+          <PremiumInput 
+            label="Emergency Contact" 
+            icon={ShieldAlert} 
+            value={formData.emergency_contact} 
+            onChange={v => setFormData(p => ({...p, emergency_contact: v}))}
+            type="tel"
           />
-        </motion.label>
-      </motion.div>
 
-      <motion.label variants={fieldReveal} initial="hidden" animate="visible" className="field mt-5">
-        <span>Medical information</span>
-        <motion.textarea
-          whileFocus={focusMotion}
-          transition={{ type: "spring", stiffness: 260, damping: 20 }}
-          name="medical_info"
-          defaultValue={vehicle?.medical_info || ""}
-          placeholder="Optional allergy, blood group, or critical medical notes."
-          rows={4}
-        />
-      </motion.label>
+          <div className="md:col-span-2">
+            <div className="relative group w-full mb-6">
+              <div className="px-4 py-4 rounded-2xl border border-white/10 bg-white/5">
+                <textarea 
+                  value={formData.medical_info}
+                  onChange={(e) => setFormData(p => ({...p, medical_info: e.target.value}))}
+                  rows={4}
+                  className="w-full bg-transparent outline-none text-white text-base font-medium placeholder-slate-600 resize-none"
+                  placeholder="Critical allergies, blood group, or history (Visible in emergency scans)"
+                />
+                <label className="absolute left-4 -top-6 text-xs font-semibold text-emerald-400 uppercase tracking-widest">
+                  Medical Telemetry
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <motion.label
-        variants={fieldReveal}
-        initial="hidden"
-        animate="visible"
-        className="mt-5 flex items-center gap-3 text-sm text-slate-300"
-      >
-        <input type="checkbox" name="is_public" defaultChecked={vehicle?.is_public ?? true} className="size-4 rounded" />
-        Make this vehicle page publicly accessible when the QR is scanned.
-      </motion.label>
+        <label className="flex items-center gap-3 text-sm text-slate-400 cursor-pointer group hover:text-white transition-colors">
+          <input 
+            type="checkbox" 
+            checked={formData.is_public}
+            onChange={(e) => setFormData(p => ({...p, is_public: e.target.checked}))}
+            className="w-5 h-5 rounded border-white/10 bg-white/5 checked:bg-emerald-500 appearance-none transition-all cursor-pointer"
+          />
+          <span>Enable global scan discoverability (SOS Ready)</span>
+        </label>
+      </div>
 
-      {message && (
-        <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-5 text-sm text-slate-300">
-          {message}
-        </motion.p>
-      )}
-
-      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-6 flex flex-wrap gap-3">
-        <motion.button
-          type="submit"
-          disabled={pending}
-          variants={fieldReveal}
-          whileHover={{ scale: 1.04, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-          className="primary-button"
-        >
-          <motion.span animate="rest" variants={pulseGlow}>
-            {pending ? "Saving..." : vehicle ? "Update vehicle" : "Create vehicle"}
-          </motion.span>
-        </motion.button>
-        <motion.div variants={fieldReveal} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.985 }}>
-          <Link href={scope === "admin" ? "/dashboard/admin" : "/dashboard/vehicles"} className="secondary-button">
-            Cancel
-          </Link>
-        </motion.div>
-        {vehicle && (
-          <motion.button
-            type="button"
-            onClick={remove}
-            disabled={pending}
-            variants={fieldReveal}
-            whileHover={{ scale: 1.03, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            className="danger-button"
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-3 h-16"
           >
-            Delete
-          </motion.button>
+            {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {vehicle ? "Commit Update" : "Register Identity"}
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest rounded-2xl transition-all h-16"
+          >
+            Abort
+          </button>
+        </div>
+
+        {vehicle && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isPending}
+            className="px-6 py-4 border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold uppercase tracking-widest rounded-2xl transition-all flex items-center gap-3 h-16"
+          >
+            <Trash2 className="w-5 h-5" />
+            Wipe Identity
+          </button>
         )}
-      </motion.div>
+      </div>
     </motion.form>
   );
 }
