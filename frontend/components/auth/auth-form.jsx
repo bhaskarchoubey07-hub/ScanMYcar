@@ -54,6 +54,7 @@ export function AuthForm() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [showOtpStep, setShowOtpStep] = useState(false);
+  const [verificationType, setVerificationType] = useState("phone_change"); // phone_change or sms
   const [status, setStatus] = useState("");
   const [activeAction, setActiveAction] = useState("");
   const [pending, startTransition] = useTransition();
@@ -103,12 +104,47 @@ export function AuthForm() {
 
   const triggerOtp = async (phoneNumber) => {
     // Uses updateUser to trigger SMS for identity verification rather than passwordless clone login
+    setVerificationType("phone_change");
     const { error } = await supabase.auth.updateUser({
       phone: phoneNumber
     });
     if (error) {
       throw error;
     }
+  };
+
+  const signInWithPhone = () => {
+    startTransition(async () => {
+      setActiveAction("phone-otp");
+      setStatus("");
+
+      try {
+        if (!phone) {
+          setStatus("Please enter your mobile number.");
+          return;
+        }
+
+        setVerificationType("sms");
+        const { error } = await supabase.auth.signInWithOtp({
+          phone,
+          options: {
+            data: {
+              full_name: fullName || "Vehicle Owner"
+            }
+          }
+        });
+
+        if (error) {
+          setStatus(formatAuthMessage(error.message));
+          return;
+        }
+
+        setShowOtpStep(true);
+        setStatus("Verification code sent to your mobile.");
+      } finally {
+        setActiveAction("");
+      }
+    });
   };
 
   const triggerPasswordReset = () => {
@@ -201,7 +237,7 @@ export function AuthForm() {
         const { error } = await supabase.auth.verifyOtp({
           phone,
           token: otp,
-          type: "phone_change"
+          type: verificationType
         });
 
         if (error) {
@@ -278,7 +314,16 @@ export function AuthForm() {
             type="button"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => { setMode("signup"); setStatus(""); }}
+            onClick={() => { setMode("phone"); setStatus(""); setShowOtpStep(false); }}
+            className={`flex-1 rounded-full px-4 py-2 text-sm ${mode === "phone" ? "bg-emerald-500 text-slate-950" : "text-slate-300"}`}
+          >
+            Mobile
+          </motion.button>
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { setMode("signup"); setStatus(""); setShowOtpStep(false); }}
             className={`flex-1 rounded-full px-4 py-2 text-sm ${mode === "signup" ? "bg-glow text-slate-950" : "text-slate-300"}`}
           >
             Create account
@@ -287,7 +332,7 @@ export function AuthForm() {
 
         <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-6 space-y-4">
           <AnimatePresence mode="popLayout">
-            {mode === "signup" && (
+            {(mode === "signup" || mode === "phone") && (
               <motion.div
                 key="signup-fields"
                 initial={{ opacity: 0, height: 0, y: -8 }}
@@ -307,7 +352,7 @@ export function AuthForm() {
                   />
                 </motion.label>
                 <motion.label variants={fieldReveal} className="field">
-                  <span>Phone</span>
+                  <span>Phone Number</span>
                   <motion.input
                     whileFocus={{ scale: 1.02, boxShadow: "0 0 0 5px rgba(56, 189, 248, 0.16)" }}
                     transition={glowTransition}
@@ -354,7 +399,20 @@ export function AuthForm() {
                   </motion.label>
                 )}
 
-                {mode === "reset" ? (
+                {mode === "phone" ? (
+                  <motion.div variants={fieldReveal} className="pt-2">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={pending || !phone}
+                      onClick={signInWithPhone}
+                      className="primary-button w-full bg-emerald-500 text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {activeAction === "phone-otp" ? "Sending OTP..." : "Send Verification Code"}
+                    </motion.button>
+                  </motion.div>
+                ) : mode === "reset" ? (
                   <motion.div variants={fieldReveal} className="space-y-3 pt-2">
                     <motion.button
                       type="button"
@@ -455,7 +513,7 @@ export function AuthForm() {
                   onClick={() => setShowOtpStep(false)}
                   className="w-full text-center text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
                 >
-                  Back to signup
+                  Back to {mode === "phone" ? "phone entry" : "signup"}
                 </button>
               </motion.div>
             )}
