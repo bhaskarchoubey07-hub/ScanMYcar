@@ -1,8 +1,8 @@
 import axios from "axios";
-import { formatDayLabel } from "@/lib/utils";
+import { formatDayLabel, getApiUrl } from "@/lib/utils";
 import { cookies } from "next/headers";
 
-const BACKEND_URL = "http://localhost:5000/api";
+const BACKEND_URL = getApiUrl();
 
 function aggregateDaily(items = [], key = "created_at") {
   const map = new Map();

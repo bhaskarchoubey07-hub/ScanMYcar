@@ -18,8 +18,9 @@ import {
   ChevronDown
 } from "lucide-react";
 import { pageReveal, fieldReveal, staggerContainer } from "@/lib/motion";
+import { getApiUrl } from "@/lib/utils";
 
-const API_BASE = "http://localhost:5000/api/vehicles";
+const API_BASE = `${getApiUrl()}/vehicles`;
 
 /**
  * Premium Vehicle Input (Fintech Style)

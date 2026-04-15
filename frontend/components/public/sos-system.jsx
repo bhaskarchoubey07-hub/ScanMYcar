@@ -13,10 +13,10 @@ import {
   Navigation,
   Loader2
 } from "lucide-react";
-import { formatPhoneHref, formatWhatsAppHref } from "@/lib/utils";
+import { formatPhoneHref, formatWhatsAppHref, getApiUrl } from "@/lib/utils";
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api/alerts";
+const API_BASE = `${getApiUrl()}/alerts`;
 
 export function SosSystem({ vehicle, location }) {
   const [isOpen, setIsOpen] = useState(false);

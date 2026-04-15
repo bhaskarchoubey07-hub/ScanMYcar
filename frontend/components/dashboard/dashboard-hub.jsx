@@ -10,10 +10,11 @@ import { useLiveDashboard } from "@/components/dashboard/live-dashboard";
 import { OwnerSosDeck } from "@/components/dashboard/owner-sos-deck";
 import { formatDate } from "@/lib/utils";
 
-const GoogleMapHeatmap = dynamic(
-  () => import("@/components/dashboard/google-map-heatmap"),
+const ScanHeatmap = dynamic(
+  () => import("@/components/dashboard/scan-heatmap"),
   { ssr: false, loading: () => <div className="h-[400px] w-full bg-slate-900/50 animate-pulse rounded-3xl" /> }
 );
+
 
 const ScanChart = dynamic(
   () => import("@/components/dashboard/scan-chart").then((mod) => mod.ScanChart),
@@ -55,7 +56,7 @@ export function DashboardHub({ initialVehicles = [], initialDailyScans = [], ini
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-        <GoogleMapHeatmap scans={scansToRender} />
+        <ScanHeatmap scans={scansToRender} />
         <div className="space-y-5">
           <OwnerSosDeck vehicles={initialVehicles} />
           <SecurityMonitor scans={scansToRender} />

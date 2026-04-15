@@ -12,8 +12,9 @@ import {
   Smartphone
 } from "lucide-react";
 import { riseIn, staggerFast } from "@/lib/motion";
+import { getApiUrl } from "@/lib/utils";
 
-const BACKEND_URL = "http://localhost:5000/api";
+const BACKEND_URL = getApiUrl();
 
 export function VehicleList({ vehicles, admin = false }) {
   if (!vehicles || !vehicles.length) {

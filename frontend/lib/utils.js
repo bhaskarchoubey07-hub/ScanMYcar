@@ -36,6 +36,11 @@ export function slugFromVehicle(vehicleNumber, id) {
   return `${normalizeVehicleNumber(vehicleNumber).toLowerCase()}-${String(id).slice(0, 8)}`;
 }
 
+export function getApiUrl() {
+  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
 export function getURL() {
   let url =
     process.env.NEXT_PUBLIC_SITE_URL ??
