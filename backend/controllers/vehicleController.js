@@ -54,7 +54,15 @@ const getVehicleById = async (req, res) => {
 
 // POST /api/vehicles
 const createVehicle = async (req, res) => {
-  const { vehicle_number, vehicle_type, owner_name, contact_phone, emergency_contact, medical_info } = req.body;
+  const { 
+    vehicle_number, 
+    vehicle_type, 
+    owner_name, 
+    contact_phone, 
+    emergency_contact, 
+    medical_info,
+    is_public 
+  } = req.body;
   const userId = req.user.id;
 
   // Validation
@@ -77,7 +85,7 @@ const createVehicle = async (req, res) => {
           emergency_contact,
           medical_info: medical_info || null,
           qr_slug,
-          is_public: true
+          is_public: is_public ?? true
         }
       ])
       .select();

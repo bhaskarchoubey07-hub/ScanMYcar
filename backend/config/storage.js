@@ -71,10 +71,15 @@ const ensureSchema = async () => {
       vehicle_number VARCHAR(30) NOT NULL,
       vehicle_type VARCHAR(30) NOT NULL,
       owner_name VARCHAR(100) NOT NULL,
-      contact_phone VARCHAR(20) NOT NULL,
+      owner_phone VARCHAR(20) NOT NULL,
       emergency_contact VARCHAR(20) NOT NULL,
+      medical_info TEXT,
+      qr_slug VARCHAR(50) NOT NULL UNIQUE,
       qr_code_url TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      is_public BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, vehicle_number)
     )
   `);
 

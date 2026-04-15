@@ -21,11 +21,11 @@ const getAllScans = async (req, res) => {
 
 // POST /api/scans
 const createScan = async (req, res) => {
-  const { vehicle_id, location } = req.body;
+  const { vehicleId, latitude, longitude, city } = req.body;
+  const userAgent = req.headers["user-agent"] || "Unknown";
 
-  // Validation
-  if (!vehicle_id) {
-    return res.status(400).json({ error: "Missing required field: vehicle_id" });
+  if (!vehicleId) {
+    return res.status(400).json({ error: "Missing required field: vehicleId" });
   }
 
   try {
@@ -33,8 +33,11 @@ const createScan = async (req, res) => {
       .from("scans")
       .insert([
         {
-          vehicle_id,
-          city: location || null
+          vehicle_id: vehicleId,
+          user_agent: userAgent,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          city: city || null
         }
       ])
       .select();

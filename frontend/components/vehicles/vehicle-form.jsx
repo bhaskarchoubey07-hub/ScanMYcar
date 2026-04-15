@@ -97,55 +97,35 @@ export function VehicleForm({ vehicle }) {
 
     startTransition(async () => {
       try {
-        const supabase = require("@/lib/supabase/browser").createClient();
-
-        // Step 2: Ensure Supabase insert includes user_id
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-        if (userError || !user) {
-          console.error("AUTH ERROR:", userError);
-          alert("Authentication session lost. Please login again.");
-          return;
-        }
-
-        const vehiclePayload = {
-          user_id: user.id,
+        const token = localStorage.getItem("auth-token") || document.cookie.split('auth-token=')[1]?.split(';')[0];
+        
+        const payload = {
           vehicle_number: formData.vehicle_number,
           vehicle_type: formData.vehicle_type,
           owner_name: formData.owner_name,
-          owner_phone: formData.contact_phone,
+          contact_phone: formData.contact_phone,
           emergency_contact: formData.emergency_contact,
           medical_info: formData.medical_info,
           is_public: formData.is_public
         };
 
-        let result;
         if (vehicle?.id) {
-          result = await supabase
-            .from("vehicles")
-            .update(vehiclePayload)
-            .eq("id", vehicle.id);
+          await axios.put(`${API_BASE}/${vehicle.id}`, payload, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
         } else {
-          // Add a random slug if it's new
-          vehiclePayload.qr_slug = Math.random().toString(36).substring(2, 10);
-          result = await supabase
-            .from("vehicles")
-            .insert([vehiclePayload]);
-        }
-
-        // Step 3: Add Error Debugging
-        if (result.error) {
-          console.error("INSERT/UPDATE ERROR:", result.error);
-          alert(result.error.message);
-          return;
+          await axios.post(API_BASE, payload, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
         }
 
         toast.success(vehicle ? "Security profile updated." : "Vehicle identity registered.");
         router.push("/dashboard");
         router.refresh();
       } catch (err) {
-        console.error("CRITICAL FAILURE:", err);
-        alert(err.message || "Transaction failed.");
+        console.error("SUBMISSION FAILURE:", err);
+        const errorMsg = err.response?.data?.error || err.message || "Transaction failed.";
+        toast.error(errorMsg);
       }
     });
   };
