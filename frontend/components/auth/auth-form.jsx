@@ -3,36 +3,29 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import axios from "axios";
 import toast from "react-hot-toast";
 import ReCAPTCHA from "react-google-recaptcha";
-import Cookies from "js-cookie";
 import { 
   Eye, 
   EyeOff, 
   Mail, 
-  Phone, 
   Lock, 
   User, 
   ArrowRight, 
   ShieldCheck, 
   CreditCard,
   Smartphone,
-  CheckCircle2,
-  AlertCircle,
   Loader2
 } from "lucide-react";
 import { 
   pageReveal, 
   staggerContainer, 
-  fieldReveal, 
   panelReveal, 
   riseIn, 
   delayedRise 
 } from "@/lib/motion";
-
-// Configuration
-const API_BASE = "http://localhost:5000/api/auth";
+import { createClient } from "@/lib/supabase/browser";
+import { getAuthRedirectUrl } from "@/lib/utils";
 
 /**
  * Premium Floating Label Input Component
@@ -126,9 +119,10 @@ export function AuthForm() {
   const [isPending, startTransition] = useTransition();
   const captchaRef = useRef(null);
   const otpRef = useRef(null);
+  const supabase = createClient();
 
   // States
-  const [mode, setMode] = useState("signin"); // signin, signup, mobile, forgot
+  const [mode, setMode] = useState("signin"); // signin, signup, email-otp, forgot
   const [showOtpStep, setShowOtpStep] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
@@ -191,10 +185,10 @@ export function AuthForm() {
         newErrors.confirmPassword = "Passwords do not match";
       }
     } else if (mode === "signin") {
-      if (!formData.email) newErrors.email = "Email/Mobile required";
+      if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Valid email required";
       if (!formData.password) newErrors.password = "Password required";
     } else if (mode === "mobile") {
-      if (!formData.phone || formData.phone.length !== 10) newErrors.phone = "10-digit mobile required";
+      if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Valid email required";
     } else if (mode === "forgot") {
       if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Valid email required";
     }
@@ -211,20 +205,33 @@ export function AuthForm() {
 
     startTransition(async () => {
       try {
-        const res = await axios.post(`${API_BASE}/signup`, {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+          options: {
+            emailRedirectTo: getAuthRedirectUrl(),
+            data: {
+              full_name: formData.name.trim(),
+              phone: formData.phone.trim()
+            }
+          }
         });
-        if (res.data.token) {
-          Cookies.set("auth-token", res.data.token, { expires: rememberMe ? 7 : 1 }); 
+
+        if (error) {
+          throw error;
         }
-        toast.success("Account created successfully!");
-        router.push("/dashboard");
-        router.refresh();
+
+        if (data.session) {
+          toast.success("Account created successfully!");
+          router.push("/dashboard");
+          router.refresh();
+          return;
+        }
+
+        toast.success("Account created. Check your email to verify and continue.");
+        setMode("signin");
       } catch (err) {
-        toast.error(err.response?.data?.message || "Signup failed");
+        toast.error(err.message || "Signup failed");
         captchaRef.current?.reset();
         setCaptchaVerified(false);
       }
@@ -232,22 +239,27 @@ export function AuthForm() {
   };
 
   const handleSignin = async () => {
-    if (!validate() || !captchaVerified) return;
+    if (!validate() || !captchaVerified) {
+      if (!captchaVerified) toast.error("Complete reCAPTCHA verification");
+      return;
+    }
 
     startTransition(async () => {
       try {
-        const res = await axios.post(`${API_BASE}/login`, {
-          identifier: formData.email,
+        const { error } = await supabase.auth.signInWithPassword({
+          email: formData.email.trim().toLowerCase(),
           password: formData.password
         });
-        if (res.data.token) {
-          Cookies.set("auth-token", res.data.token, { expires: rememberMe ? 7 : 1 });
+
+        if (error) {
+          throw error;
         }
+
         toast.success("Welcome back!");
         router.push("/dashboard");
         router.refresh();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Invalid credentials");
+        toast.error(err.message || "Invalid credentials");
         captchaRef.current?.reset();
         setCaptchaVerified(false);
       }
@@ -259,49 +271,49 @@ export function AuthForm() {
 
     startTransition(async () => {
       try {
-        await axios.post(`${API_BASE}/send-otp`, { mobile: formData.phone });
-        setShowOtpStep(true);
-        setResendTimer(30);
-        toast.success("OTP sent successfully!");
+        const email = formData.email.trim().toLowerCase();
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: getAuthRedirectUrl(),
+            shouldCreateUser: false
+          }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        toast.success("Magic link sent. Check your email to continue.");
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to send OTP");
+        toast.error(err.message || "Failed to send magic link");
       }
     });
   };
 
   const handleVerifyOtp = async () => {
-    if (!formData.otp || formData.otp.length < 6) {
-      setErrors({ otp: "Enter valid 6-digit OTP" });
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const res = await axios.post(`${API_BASE}/verify-otp`, {
-          mobile: formData.phone,
-          code: formData.otp
-        });
-        if (res.data.token) {
-          Cookies.set("auth-token", res.data.token, { expires: 7 });
-        }
-        toast.success("Identity verified!");
-        router.push("/dashboard");
-        router.refresh();
-      } catch (err) {
-        toast.error("Invalid or expired OTP");
-      }
-    });
+    toast.error("Use the link sent to your email to complete sign-in.");
   };
 
   const handleForgotPassword = async () => {
     if (!validate()) return;
     startTransition(async () => {
       try {
-        await axios.post(`${API_BASE}/forgot-password`, { email: formData.email });
+        const { error } = await supabase.auth.resetPasswordForEmail(
+          formData.email.trim().toLowerCase(),
+          {
+            redirectTo: getAuthRedirectUrl()
+          }
+        );
+
+        if (error) {
+          throw error;
+        }
+
         toast.success("Reset link sent if account exists.");
         setMode("signin");
       } catch (err) {
-        toast.error("Process failed. Try again.");
+        toast.error(err.message || "Process failed. Try again.");
       }
     });
   };
@@ -362,7 +374,7 @@ export function AuthForm() {
             <div className="flex bg-slate-900/50 p-1 rounded-2xl mb-10 border border-white/5 relative z-40">
               {[
                 { id: "signin", label: "Sign In" },
-                { id: "mobile", label: "Mobile" },
+                { id: "mobile", label: "Email OTP" },
                 { id: "signup", label: "Create Account" }
               ].map((tab) => (
                 <button
@@ -405,12 +417,12 @@ export function AuthForm() {
                 )}
 
                 <AuthInput 
-                  label={mode === "mobile" ? "Mobile Number" : "Email Address"} 
-                  icon={mode === "mobile" ? Phone : Mail} 
-                  type={mode === "mobile" ? "tel" : "email"}
-                  value={mode === "mobile" ? formData.phone : formData.email} 
-                  onChange={v => updateField(mode === "mobile" ? "phone" : "email", v)}
-                  error={mode === "mobile" ? errors.phone : errors.email}
+                  label="Email Address" 
+                  icon={Mail} 
+                  type="email"
+                  value={formData.email} 
+                  onChange={v => updateField("email", v)}
+                  error={errors.email}
                 />
 
                 {(mode === "signin" || mode === "signup") && (
@@ -458,7 +470,7 @@ export function AuthForm() {
                       <Loader2 className="w-6 h-6 animate-spin text-slate-950" />
                     ) : (
                       <>
-                        {mode === "signup" ? "Create Account" : mode === "signin" ? "Sign Integrity" : mode === "mobile" ? "Access Vault" : "Send Recovery Link"}
+                        {mode === "signup" ? "Create Account" : mode === "signin" ? "Sign In" : mode === "mobile" ? "Send Magic Link" : "Send Recovery Link"}
                         <ArrowRight className="w-5 h-5" />
                       </>
                     )}
@@ -474,7 +486,7 @@ export function AuthForm() {
                             onChange={(e) => setRememberMe(e.target.checked)}
                             className="w-4 h-4 rounded border-white/10 bg-white/5 appearance-none checked:bg-emerald-500 transition-all cursor-pointer" 
                           />
-                          <span className="group-hover:text-slate-300 transition-colors uppercase tracking-wider">Remember ID</span>
+                          <span className="group-hover:text-slate-300 transition-colors uppercase tracking-wider">Remember Session</span>
                         </label>
                         <button 
                           onClick={() => setMode("forgot")}
@@ -507,7 +519,7 @@ export function AuthForm() {
                   </div>
                   <h3 className="text-2xl font-extrabold text-white">Trust Verification</h3>
                   <p className="text-slate-400 leading-relaxed text-sm">
-                    Sequence sent to <span className="text-emerald-400 font-bold">{formData.phone}</span>
+                    Link sent to <span className="text-emerald-400 font-bold">{formData.email}</span>
                   </p>
                 </div>
 
