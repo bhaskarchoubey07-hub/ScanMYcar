@@ -1,4 +1,4 @@
-const supabase = require("../supabaseClient");
+const { pool } = require("../config/storage");
 
 /**
  * Trigger an SOS Alert from a public scan page
@@ -12,36 +12,35 @@ const triggerSos = async (req, res) => {
 
   try {
     // 1. Fetch vehicle and owner info for the "alert notification"
-    const { data: vehicle, error: vError } = await supabase
-      .from("vehicles")
-      .select("vehicle_number, owner_name, emergency_contact, user_id")
-      .eq("id", vehicle_id)
-      .single();
+    const vResult = await pool.query(
+      "SELECT vehicle_number, owner_name, emergency_contact, user_id FROM public.vehicles WHERE id = $1",
+      [vehicle_id]
+    );
 
-    if (vError || !vehicle) {
+    const vehicle = vResult.rows[0];
+
+    if (!vehicle) {
       return res.status(404).json({ error: "Vehicle not found." });
     }
 
     // 2. Create the alert entry
-    const { data: alert, error: aError } = await supabase
-      .from("alerts")
-      .insert([
-        {
-          vehicle_id,
-          alert_type: alert_type || "sos",
-          message: message || `Emergency escalation triggered for ${vehicle.vehicle_number}`,
-          status: "open",
-          latitude,
-          longitude,
-          city,
-          region
-        }
-      ])
-      .select();
+    const aResult = await pool.query(
+      `INSERT INTO public.alerts (vehicle_id, alert_type, message, status, latitude, longitude, city, region)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        vehicle_id,
+        alert_type || "sos",
+        message || `Emergency escalation triggered for ${vehicle.vehicle_number}`,
+        "open",
+        latitude || null,
+        longitude || null,
+        city || null,
+        region || null
+      ]
+    );
 
-    if (aError) {
-      return res.status(500).json({ error: aError.message });
-    }
+    const alert = aResult.rows[0];
 
     // 3. Simulate WhatsApp/SMS Notification
     console.log(`[FINTECH-ALERTS] CRITICAL SOS ESCALATION`);
@@ -51,7 +50,7 @@ const triggerSos = async (req, res) => {
 
     return res.status(201).json({
       message: "SOS alert triggered and owner notified successfully.",
-      alert: alert[0]
+      alert
     });
   } catch (error) {
     console.error("Error in triggerSos:", error);
@@ -68,26 +67,23 @@ const getVehicleAlerts = async (req, res) => {
 
   try {
     // Verify ownership
-    const { data: vehicle } = await supabase
-      .from("vehicles")
-      .select("id")
-      .eq("id", vehicle_id)
-      .eq("user_id", userId)
-      .single();
+    const vResult = await pool.query(
+      "SELECT id FROM public.vehicles WHERE id = $1 AND user_id = $2",
+      [vehicle_id, userId]
+    );
 
-    if (!vehicle) {
+    if (vResult.rows.length === 0) {
       return res.status(403).json({ error: "Unauthorized access to alerts." });
     }
 
-    const { data, error } = await supabase
-      .from("alerts")
-      .select("*")
-      .eq("vehicle_id", vehicle_id)
-      .order("created_at", { ascending: false });
+    const aResult = await pool.query(
+      "SELECT * FROM public.alerts WHERE vehicle_id = $1 ORDER BY created_at DESC",
+      [vehicle_id]
+    );
 
-    if (error) return res.status(500).json({ error: error.message });
-    return res.json(data);
+    return res.json(aResult.rows);
   } catch (error) {
+    console.error("Error in getVehicleAlerts:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

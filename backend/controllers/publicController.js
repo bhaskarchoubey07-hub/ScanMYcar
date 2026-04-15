@@ -1,4 +1,4 @@
-const supabase = require("../supabaseClient");
+const { pool } = require("../config/storage");
 const UAParser = require("ua-parser-js");
 
 const getClientIp = (req) => {
@@ -13,14 +13,14 @@ const getPublicVehicle = async (req, res) => {
   const { slug } = req.params;
 
   try {
-    const { data: vehicle, error } = await supabase
-      .from("vehicles")
-      .select("id, vehicle_number, vehicle_type, owner_name, owner_phone, emergency_contact, medical_info, is_public")
-      .eq("qr_slug", slug)
-      .eq("is_public", true)
-      .single();
+    const result = await pool.query(
+      "SELECT id, vehicle_number, vehicle_type, owner_name, owner_phone, emergency_contact, medical_info, is_public FROM public.vehicles WHERE qr_slug = $1 AND is_public = true",
+      [slug]
+    );
 
-    if (error || !vehicle) {
+    const vehicle = result.rows[0];
+
+    if (!vehicle) {
       return res.status(404).json({ error: "Vehicle identity not found or restricted." });
     }
 

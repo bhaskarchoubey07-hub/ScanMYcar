@@ -425,6 +425,18 @@ export function AuthForm() {
                   error={errors.email}
                 />
 
+                {mode === "signup" && (
+                  <AuthInput 
+                    label="Mobile Number" 
+                    icon={Smartphone} 
+                    type="tel"
+                    value={formData.phone} 
+                    onChange={v => updateField("phone", v.replace(/\D/g, "").slice(0, 10))} 
+                    error={errors.phone}
+                    placeholder="10-digit mobile"
+                  />
+                )}
+
                 {(mode === "signin" || mode === "signup") && (
                   <AuthInput 
                     label="Password" 
