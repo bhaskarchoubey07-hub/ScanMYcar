@@ -91,11 +91,17 @@ const createVehicle = async (req, res) => {
       .select();
 
     if (error) {
+      if (error?.code === "402" || error?.status === 402 || error?.message?.includes("402")) {
+        return res.status(402).json({ error: "System Error: Database/Auth limits exceeded. Project must be upgraded or unpaused." });
+      }
       return res.status(500).json({ error: error.message });
     }
 
     return res.status(201).json(data[0]);
   } catch (error) {
+    if (error?.response?.status === 402 || error?.message?.includes("402")) {
+       return res.status(402).json({ error: "System Error: Database limits exceeded on your Supabase Project." });
+    }
     console.error("Error in createVehicle:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
