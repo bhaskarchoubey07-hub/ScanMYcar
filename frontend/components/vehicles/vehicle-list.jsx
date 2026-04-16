@@ -75,7 +75,7 @@ export function VehicleList({ vehicles, admin = false }) {
 
             <div className="flex flex-wrap gap-3 self-end lg:self-start">
               <motion.a 
-                href={`${BACKEND_URL}/vehicles/qr/download/${vehicle.qr_slug}`} 
+                href={`${BACKEND_URL}/vehicle/qr/download/${vehicle.qr_slug}`} 
                 whileHover={{ scale: 1.04 }} 
                 whileTap={{ scale: 0.98 }} 
                 className="px-6 py-3 bg-white text-slate-950 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center gap-2"

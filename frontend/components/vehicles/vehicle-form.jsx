@@ -20,7 +20,7 @@ import {
 import { pageReveal, fieldReveal, staggerContainer } from "@/lib/motion";
 import { getApiUrl } from "@/lib/utils";
 
-const API_BASE = `${getApiUrl()}/vehicles`;
+const API_BASE = `${getApiUrl()}/vehicle`;
 
 /**
  * Premium Vehicle Input (Fintech Style)
