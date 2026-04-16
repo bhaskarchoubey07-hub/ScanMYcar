@@ -25,19 +25,14 @@ begin
 end;
 $$;
 
-create or replace function public.is_admin(check_user uuid)
+create or replace function public.is_admin()
 returns boolean
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select exists (
-    select 1
-    from public.users
-    where id = check_user
-      and role = 'admin'
-  );
+  select coalesce(auth.jwt() -> 'user_metadata' ->> 'role', 'user') = 'admin';
 $$;
 
 create table if not exists public.users (
@@ -194,45 +189,45 @@ drop policy if exists "users_select_self_or_admin" on public.users;
 create policy "users_select_self_or_admin"
 on public.users
 for select
-using (auth.uid() = id or public.is_admin(auth.uid()));
+using (auth.uid() = id or public.is_admin());
 
 drop policy if exists "users_update_self_or_admin" on public.users;
 create policy "users_update_self_or_admin"
 on public.users
 for update
-using (auth.uid() = id or public.is_admin(auth.uid()))
-with check (auth.uid() = id or public.is_admin(auth.uid()));
+using (auth.uid() = id or public.is_admin())
+with check (auth.uid() = id or public.is_admin());
 
 drop policy if exists "users_insert_self_or_admin" on public.users;
 create policy "users_insert_self_or_admin"
 on public.users
 for insert
-with check (auth.uid() = id or public.is_admin(auth.uid()));
+with check (auth.uid() = id or public.is_admin());
 
 drop policy if exists "vehicles_select_owner_admin_or_public" on public.vehicles;
 create policy "vehicles_select_owner_admin_or_public"
 on public.vehicles
 for select
-using (is_public or user_id = auth.uid() or public.is_admin(auth.uid()));
+using (is_public or user_id = auth.uid() or public.is_admin());
 
 drop policy if exists "vehicles_insert_owner_or_admin" on public.vehicles;
 create policy "vehicles_insert_owner_or_admin"
 on public.vehicles
 for insert
-with check (user_id = auth.uid() or public.is_admin(auth.uid()));
+with check (user_id = auth.uid() or public.is_admin());
 
 drop policy if exists "vehicles_update_owner_or_admin" on public.vehicles;
 create policy "vehicles_update_owner_or_admin"
 on public.vehicles
 for update
-using (user_id = auth.uid() or public.is_admin(auth.uid()))
-with check (user_id = auth.uid() or public.is_admin(auth.uid()));
+using (user_id = auth.uid() or public.is_admin())
+with check (user_id = auth.uid() or public.is_admin());
 
 drop policy if exists "vehicles_delete_owner_or_admin" on public.vehicles;
 create policy "vehicles_delete_owner_or_admin"
 on public.vehicles
 for delete
-using (user_id = auth.uid() or public.is_admin(auth.uid()));
+using (user_id = auth.uid() or public.is_admin());
 
 drop policy if exists "scans_select_owner_or_admin" on public.scans;
 create policy "scans_select_owner_or_admin"
@@ -243,7 +238,7 @@ using (
     select 1
     from public.vehicles v
     where v.id = vehicle_id
-      and (v.user_id = auth.uid() or public.is_admin(auth.uid()))
+      and (v.user_id = auth.uid() or public.is_admin())
   )
 );
 
@@ -269,7 +264,7 @@ using (
     select 1
     from public.vehicles v
     where v.id = vehicle_id
-      and (v.user_id = auth.uid() or public.is_admin(auth.uid()))
+      and (v.user_id = auth.uid() or public.is_admin())
   )
 );
 

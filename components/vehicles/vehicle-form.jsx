@@ -90,29 +90,17 @@ export function VehicleForm({ vehicle }) {
           qr_slug: vehicle?.qr_slug || `${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`
         };
 
-        // Ensure user profile exists in public.users (Lazy creation)
-        const { data: profile, error: profileCheckError } = await supabase
+        // Ensure user profile exists in public.users (Lazy creation / Sync)
+        const { error: profileError } = await supabase
           .from('users')
-          .select('id')
-          .eq('id', user.id)
-          .single();
-
-        if (profileCheckError && profileCheckError.code !== 'PGRST116') { // PGRST116 is "not found"
-          throw profileCheckError;
-        }
-
-        if (!profile) {
-          const { error: profileCreateError } = await supabase
-            .from('users')
-            .insert([{
-              id: user.id,
-              email: user.email,
-              full_name: user.user_metadata?.full_name || user.email.split('@')[0],
-              phone: user.user_metadata?.phone || ''
-            }]);
-          
-          if (profileCreateError) throw profileCreateError;
-        }
+          .upsert({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+            phone: user.user_metadata?.phone || ''
+          }, { onConflict: 'id' });
+        
+        if (profileError) throw profileError;
 
         let result;
         if (vehicle?.id) {
