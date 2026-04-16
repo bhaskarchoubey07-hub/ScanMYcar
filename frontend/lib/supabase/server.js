@@ -5,10 +5,10 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    console.error("CRITICAL: Server-side Supabase configuration missing. Identity features will be inactive.");
+    console.error(`[@supabase/ssr] Server-side Supabase configuration missing: URL=${!!url}, KEY=${!!key}`);
   }
 
   return createServerClient(url, key, {
