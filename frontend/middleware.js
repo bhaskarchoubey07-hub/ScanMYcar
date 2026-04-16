@@ -12,8 +12,7 @@ export async function middleware(request) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    // If variables are missing, we can't do auth checks.
-    // Allow the request to proceed; frontend hardening will handle the UI state.
+    console.warn(`[CORE_MIDDLEWARE_AUTH_MISSING] Skipping auth checks: URL=${!!url}, KEY=${!!key}`);
     return response;
   }
 

@@ -2,7 +2,7 @@
 
 import { createClient } from "./browser";
 
-const supabase = createClient();
+// supabase instance will be initialized inside functions locally to avoid module-level side effects.
 
 /**
  * Subscribes to real-time messages for a specific room (e.g., a vehicle SOS ID)
@@ -13,6 +13,7 @@ const supabase = createClient();
  * @returns {import('@supabase/supabase-js').RealtimeChannel} - The subscription channel
  */
 export function subscribeRoomMessages(roomId, onMessage) {
+  const supabase = createClient();
   const ch = supabase
     .channel(`room:${roomId}:messages`, { config: { private: true } })
     .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
@@ -39,6 +40,7 @@ export function subscribeRoomMessages(roomId, onMessage) {
  * @returns {import('@supabase/supabase-js').RealtimeChannel} - The presence channel
  */
 export function subscribeRoomPresence(roomId, userId, onPresenceUpdate) {
+  const supabase = createClient();
   const presenceCh = supabase
     .channel(`room:${roomId}:presence`, {
       config: {
@@ -75,6 +77,7 @@ export function subscribeRoomPresence(roomId, userId, onPresenceUpdate) {
  * @param {import('@supabase/supabase-js').RealtimeChannel} channel - The channel to remove
  */
 export function unsubscribeChannel(channel) {
+  const supabase = createClient();
   if (channel && supabase) {
     supabase.removeChannel(channel);
   }

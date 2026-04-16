@@ -8,7 +8,9 @@ export async function createClient() {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    console.error(`[@supabase/ssr] Server-side Supabase configuration missing: URL=${!!url}, KEY=${!!key}`);
+    const errorMsg = `[CORE_SERVER_AUTH_MISSING] Server-side Supabase configuration missing: URL=${!!url}, KEY=${!!key}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   return createServerClient(url, key, {
