@@ -104,6 +104,7 @@ app.get('/api/health', async (req, res, next) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicle', vehicleRoutes);
+app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/admin', adminRoutes);
 

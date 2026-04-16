@@ -37,8 +37,11 @@ export function slugFromVehicle(vehicleNumber, id) {
 }
 
 export function getApiUrl() {
-  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-  return url.endsWith("/") ? url.slice(0, -1) : url;
+  const fallbackUrl = "http://localhost:5000/api";
+  const rawUrl = (process.env.NEXT_PUBLIC_API_URL || fallbackUrl).trim();
+  const normalizedUrl = rawUrl.replace(/\/+$/, "");
+  if (/\/api$/i.test(normalizedUrl)) return normalizedUrl;
+  return `${normalizedUrl}/api`;
 }
 
 export function getURL() {
