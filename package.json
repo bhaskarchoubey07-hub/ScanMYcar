@@ -1,18 +1,37 @@
 {
-  "name": "smart-vehicle-identity-emergency-response-system",
-  "private": true,
+  "name": "smart-vehicle-identity-system",
   "version": "2.0.0",
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
+  "private": true,
   "scripts": {
-    "dev": "npm run dev -w frontend",
-    "build": "npm run build -w frontend",
-    "start": "npm run start -w frontend"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.0",
-    "jwt-decode": "^4.0.0"
+    "@react-google-maps/api": "^2.20.8",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.49.8",
+    "chart.js": "^4.5.1",
+    "framer-motion": "^11.18.2",
+    "html-to-image": "^1.11.13",
+    "leaflet": "^1.9.4",
+    "lodash-es": "^4.18.1",
+    "lucide-react": "^0.511.0",
+    "luxon": "^3.7.2",
+    "next": "14.2.16",
+    "qrcode": "^1.5.4",
+    "react": "18.2.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "18.2.0",
+    "react-hot-toast": "^2.6.0",
+    "react-is": "^18.2.0",
+    "react-leaflet": "^4.2.1",
+    "recharts": "2.12.7"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17"
   }
 }

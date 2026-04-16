@@ -1,112 +1,77 @@
-# Smart Vehicle Identity & Emergency Response System
+# 🚗 Smart Vehicle Identity & SOS Response System (SVIERN)
 
-Full-stack SaaS application for vehicle identity, QR-based contact access, and emergency response workflows.
+A premium, production-ready SaaS application for vehicle identity management, QR-based contact discovery, and real-time emergency response. Built with **Next.js 14**, **Supabase**, and **Framer Motion**.
 
-## Stack
+---
 
-- Frontend: Next.js App Router, React 19, Tailwind CSS
-- Backend: Next.js route handlers and server actions
-- Platform: Supabase Auth, PostgreSQL, Storage
+## ⚡ Revolutionary Architecture
 
-## Core Features
+- **Serverless Core**: Powered by Next.js App Router and Supabase SSR. No external backend required.
+- **Real-time Telemetry**: Live dashboard updates via Supabase Realtime subscriptions.
+- **AI-Driven Security**: Client-side anomaly detection identifying suspicious rapid-scan activity.
+- **Premium Aesthetics**: Dark glassmorphism UI with cinematic animations and responsive SOS protocols.
+- **Vercel Optimized**: Clean root structure ready for instant deployment.
 
-- Email OTP authentication with role-based access for `user` and `admin`
-- Vehicle management with create, edit, delete, and dynamic QR generation
-- Public QR scan page with call, WhatsApp, SOS alert, and optional geolocation
-- Admin dashboard with totals, recent activity, editable entries, and CSV export
-- Scan analytics with daily trend chart and activity feed
-- Mobile-first dark glassmorphism UI
+---
 
-## Folder Structure
+## 🚀 Key Features
 
-```text
-frontend/
-  app/
-    (dashboard)/dashboard/...
-    api/
-    auth/
-    v/[slug]/
-  components/
-    auth/
-    dashboard/
-    public/
-    vehicles/
-  lib/
-    supabase/
-database/
-  schema.sql
-backend/
-  legacy Express implementation kept for reference
-```
+- **Auth 2.0**: Secure authentication with direct Supabase Auth integration.
+- **Identity Hub**: Manage your vehicle fleet, generate high-resolution QR identity cards, and track scan telemetry.
+- **SOS Protocol**: One-tap emergency broadcast system alerting owners via dashboard and family via WhatsApp.
+- **Dynamic QR Cards**: Custom-themed, printable identity cards that act as the physical-to-digital bridge.
+- **Public Profile**: Verified public pages for vehicles displaying emergency contact and medical info.
+- **Global Monitor**: Real-time activity feed tracking scans and security alerts across the infrastructure.
 
-## Environment Variables
+---
 
-Create `frontend/.env.local`:
+## 🛠️ Stack & Technologies
+
+- **Frontend**: Next.js 14 (App Router), Tailwind CSS, Lucide icons.
+- **Animations**: Framer Motion for premium micro-interactions.
+- **Database/Auth**: Supabase (PostgreSQL + Auth + Realtime).
+- **Deployment**: Vercel (Auto-optimized for Edge).
+
+---
+
+## ⚙️ Environment Configuration
+
+Create a `.env.local` file at the root:
 
 ```env
-NEXT_PUBLIC_SITE_URL=https://scan-m-ycar-frontend.vercel.app
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-For local development, you can override `NEXT_PUBLIC_SITE_URL=http://localhost:3000` in `frontend/.env.local`.
+---
 
-## Supabase Setup
+## 📥 Getting Started
 
-1. Create a Supabase project.
-2. Run [database/schema.sql](/c:/Users/bhask/OneDrive/Documents/ScanMyCar/database/schema.sql) in the SQL editor.
-3. Enable email OTP in Supabase Auth.
-4. In Supabase Auth URL Configuration, set:
-   - Site URL: `https://scan-m-ycar-frontend.vercel.app/`
-   - Redirect URLs:
-     - `http://localhost:3000/auth/callback`
-     - `https://scan-m-ycar-frontend.vercel.app/auth/callback`
-5. Create an admin user by updating `public.users.role` to `admin` after signup.
+1. **Database Setup**: Run the [database/schema.sql](database/schema.sql) in your Supabase SQL Editor to initialize tables, RLS policies, and real-time triggers.
+2. **Install & Run**:
+   ```bash
+   npm install
+   npm run dev
+   ```
+3. **Identity Verification**: Sign up and register your first vehicle to generate your secure QR Identity.
 
-## Local Development
+---
 
-1. Install dependencies:
+## 📦 Deployment to Vercel
 
-```bash
-npm install
-```
+1. Connect your repository to Vercel.
+2. The project will auto-detect the Next.js framework.
+3. Add your Supabase environment variables in the Vercel dashboard.
+4. **Deployed!** The architecture is optimized for cold-starts and low-latency edge rendering.
 
-2. Start the app:
+---
 
-```bash
-npm run dev
-```
+## 📜 Architecture History
 
-3. Open `http://localhost:3000`.
+This project was migrated from a legacy Node.js/Express monorepo structure to a streamlined, pure Next.js/Supabase architecture in April 2026. The `backend/` directory and legacy API dependencies have been eliminated to ensure maximum performance and security.
 
-## Auth Redirect Behavior
+---
 
-- OTP emails use an environment-based redirect URL helper.
-- Development fallback: `http://localhost:3000/`
-- Production fallback: `https://scan-m-ycar-frontend.vercel.app/`
-- Callback route: `/auth/callback`
-- Authenticated users are automatically routed to `/dashboard`.
-
-## Deployment
-
-### Vercel
-
-- Root directory: `frontend`
-- Framework preset: `Next.js`
-- Build command: `npm run build`
-- Output: default Next.js output
-
-Set the same environment variables from `frontend/.env.production.example`.
-
-### Supabase Storage
-
-- Bucket expected: `vehicle-qr`
-- Public read access is created by the SQL schema
-- QR assets are uploaded automatically by the server action when `SUPABASE_SERVICE_ROLE_KEY` is present
-
-## Notes
-
-- The old `backend/` folder remains in the repo as a legacy implementation, but the active SaaS app now runs from `frontend/`.
-- QR download is available via `/api/qr/[slug]` even if storage upload is not configured yet.
-- Public scan and SOS logging are stored in `scans` and `alerts`.
+*Secured by ScanMyCar Protocol v3.0*
