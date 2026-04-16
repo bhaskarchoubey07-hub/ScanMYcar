@@ -2,7 +2,6 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
 import { createClient } from "@/lib/supabase/browser";
 
 export function LogoutButton() {
@@ -17,7 +16,6 @@ export function LogoutButton() {
         startTransition(async () => {
           const supabase = createClient();
           await supabase.auth.signOut();
-          Cookies.remove("auth-token");
           router.push("/auth");
           router.refresh();
         })
