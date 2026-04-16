@@ -26,6 +26,7 @@ app.use(express.json());
 // Main Routes
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/vehicle", vehicleRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/dashboard", dashboardRoutes);
