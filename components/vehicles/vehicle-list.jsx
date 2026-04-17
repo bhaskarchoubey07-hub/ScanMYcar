@@ -69,7 +69,7 @@ export function VehicleList({ vehicles, admin = false }) {
 
             <div className="flex flex-wrap gap-4 pt-4 lg:pt-0">
               <Link
-                href={`/dashboard/vehicles/${vehicle.id}`}
+                href={`/dashboard/vehicles/${vehicle.id}/qr`}
                 className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg flex items-center gap-3"
               >
                 <Eye size={16} />

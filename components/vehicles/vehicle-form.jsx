@@ -107,17 +107,26 @@ export function VehicleForm({ vehicle }) {
           result = await supabase
             .from('vehicles')
             .update(vehicleData)
-            .eq('id', vehicle.id);
+            .eq('id', vehicle.id)
+            .select();
         } else {
           result = await supabase
             .from('vehicles')
-            .insert([vehicleData]);
+            .insert([vehicleData])
+            .select();
         }
 
         if (result.error) throw result.error;
 
         toast.success(vehicle ? "Profile updated." : "Vehicle registered.");
-        router.push("/dashboard/vehicles");
+        
+        // Redirect to QR page for better UX
+        const targetId = result.data?.[0]?.id || vehicle?.id;
+        if (targetId) {
+          router.push(`/dashboard/vehicles/${targetId}/qr`);
+        } else {
+          router.push("/dashboard/vehicles");
+        }
         router.refresh();
       } catch (err) {
         toast.error(err.message || "Operation failed");

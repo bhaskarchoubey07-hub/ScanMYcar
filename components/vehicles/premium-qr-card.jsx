@@ -108,7 +108,7 @@ export function PremiumQrCard({ vehicle }) {
                 />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrValue)}`}
+                  src={`/api/qr/${vehicle.qr_slug}`}
                   alt="Vehicle QR"
                   className="size-48"
                 />
