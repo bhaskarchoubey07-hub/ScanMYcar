@@ -7,6 +7,24 @@ import { AlertCircle, RefreshCcw } from "lucide-react";
 export default function GlobalError({ error, reset }) {
   useEffect(() => {
     console.error("Critical System Anomaly:", error);
+
+    // Auto-reload on chunk loading errors (common after new deployments)
+    const isChunkLoadFailed = 
+      error?.message?.toLowerCase().includes("loading chunk") || 
+      error?.name === "ChunkLoadError" ||
+      error?.message?.toLowerCase().includes("failed to fetch dynamically imported module");
+
+    if (isChunkLoadFailed) {
+      const reloadCount = parseInt(sessionStorage.getItem('chunkReloadCount') || '0', 10);
+      if (reloadCount < 2) {
+        sessionStorage.setItem('chunkReloadCount', String(reloadCount + 1));
+        window.location.reload();
+        return;
+      }
+    }
+    
+    // Clear the counter if we display the error
+    sessionStorage.removeItem('chunkReloadCount');
   }, [error]);
 
   return (
